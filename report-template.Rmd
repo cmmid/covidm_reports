@@ -94,11 +94,31 @@ thm_right <- theme_minimal(base_size = 8) + theme(
   panel.grid.major.x = element_blank()
 )
 
-summary_tsplotter <- function(subdt, title, pop = poppyra) {
-  refdt <- subdt[between(date, refday, refday+ulim)][,
+calculate_reference_table <- function(subdt){
+  return(subdt[between(date, refday, refday+ulim)][,
     .(value = sum(value)),
     keyby = .(run, date, population, compartment)
-  ]
+  ])
+  }
+
+calculate_peaks <- function(refdt){
+  return(refdt[,
+    .(peakdate = date[which.max(value)], peak=max(value)),
+    by=.(run, population, compartment)
+  ])
+}
+
+calculate_timings <- function(peak.dt){
+  return(peaks.dt[peak != 0, {
+    qs <- quantile(peakdate, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
+    names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi")
+    as.list(qs)
+  }, by=.(population, compartment)
+  ])
+}
+
+summary_tsplotter <- function(subdt, title, pop = poppyra) {
+  refdt <- calculate_reference_table(subdt)
   
   
   p <- refdt %>%
@@ -114,23 +134,15 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
                     alpha=0.3)+
     geom_line()+
     # coord_cartesian(expand = FALSE, clip = "off") +
-    scale_y_continuous(title) +
+    scale_y_continuous(title, labels = scales::label_number_auto()) +
     # dtscale +
     thm_main + theme(
       legend.position = c(0, 1),
       legend.justification = c(0, 1)
     )
-  peaks.dt <- refdt[,
-    .(peakdate = date[which.max(value)], peak=max(value)),
-    by=.(run, population, compartment)
-  ]
   
-  timing.dt <- peaks.dt[peak != 0, {
-    qs <- quantile(peakdate, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-    names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi")
-    as.list(qs)
-  }, by=.(population, compartment)
-  ]
+  peaks.dt <- calculate_peaks(refdt)
+  timings.dt <- calculate_timings(peaks.df)
   
   size.dt <- peaks.dt[peak != 0,{
     qs <- quantile(peak, probs = c(0.025, 0.25, 0.5, 0.75, 0.975, 1.0))
@@ -166,7 +178,7 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
     geom_blank(aes(y=mx)) +
     geom_point(aes(y=md), size = 3) +
     coord_cartesian(ylim = c(0, NA), expand = TRUE, clip = "off") +
-    scale_y_continuous("Peak Number", sec.axis = dup_axis()) +
+    scale_y_continuous("Peak Number", sec.axis = dup_axis(), labels = scales::label_number_auto()) +
     thm_right
   
   return(
