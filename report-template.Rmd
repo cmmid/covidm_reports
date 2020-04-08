@@ -1,5 +1,5 @@
 ---
-author: "CMMID COVID-19 Working Group"
+author: "LSHTM CMMID COVID-19 Working Group"
 date: "`r format(Sys.Date(),'%d %b %Y')`"
 output:
   pdf_document:
@@ -359,7 +359,7 @@ tsCplotter(subdyn[compartment == "death_o"], "Cumulative Deaths")
 
 # Conclusions
 
-Based on the projections, we recommend accelerated preparations in Benin to ready the healthcare system for the coming wave of COVID-19 patients. Augmented staffing, personal protective equipment stores and training, general isolation beds, and equipped critical care units are all urgently needed, alongside awareness campaigns with officials encouraging preventive measures such as physical distancing and regular hand washing.
+Based on the projections, there is likely to be a large number of cases and high demand for medical care. Preparedness activities are needed.
 
 # TODO: bibtex these References
 
