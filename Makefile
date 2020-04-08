@@ -16,7 +16,7 @@ R = Rscript $^ $@
 LMIC.txt: X-LMIC.R
 	Rscript $^ ${COVIDMPATH} $@
 
-
+###############################################################################
 # This is for generating contact matrices
 
 LMICcontact_matrices.txt: LMIC.txt
@@ -25,15 +25,41 @@ LMICcontact_matrices.txt: LMIC.txt
 	rm $@-tmp
 	sed -i '' "s/$$/\/contact_matrices\.rds/" $@
 
-CMS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICargs.txt))
+CMS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICcontact_matrices.txt))
 
 allcontactmatrices: ${CMS} | LMICcontact_matrices.txt
 
 ${INTINPUTDIR}/%/contact_matrices.rds: create_contact_matrices.R
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $* PLACEHOLDER $@
+	[ -f "$@" ] && touch $@
 
-testcm: ${INTINPUTDIR}/caboverde/contact_matrices.rds | LMICcontact_matrices.txt
+testcm: ${INTINPUTDIR}/uganda/contact_matrices.rds | LMICcontact_matrices.txt
+
+###############################################################################
+# This is for generating parameter sets
+
+LMICparams_set.txt: LMIC.txt
+	sed "s/ //g" $^ > $@-tmp
+	tr '[:upper:]' '[:lower:]' < $@-tmp > $@
+	rm $@-tmp
+	sed -i '' "s/$$/\/params_set\.rds/" $@
+
+PSS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICparams_set.txt))
+
+allparamsets: ${PSS} | LMICparams_set.txt
+
+${INTINPUTDIR}/%/params_set.rds: create_params_set.R
+	mkdir -p $(@D)
+	Rscript $^ ${COVIDMPATH} $* PLACEHOLDER $@
+
+testps: ${INTINPUTDIR}/caboverde/params_set.rds | LMICparams_set.txt
+
+
+
+
+
+
 
 
 LMICargs.txt: LMIC.txt
