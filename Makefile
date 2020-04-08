@@ -11,12 +11,37 @@ ${REPDIR} ${DATADIR}:
 
 R = Rscript $^ $@
 
+# This file forms the reference locales for which we generate reports
+
 LMIC.txt: X-LMIC.R
 	Rscript $^ ${COVIDMPATH} $@
+
+
+# This is for generating contact matrices
+
+LMICcontact_matrices.txt: LMIC.txt
+	sed "s/ //g" $^ > $@-tmp
+	tr '[:upper:]' '[:lower:]' < $@-tmp > $@
+	rm $@-tmp
+	sed -i '' "s/$$/\/contact_matrices\.rds/" $@
+
+CMS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICargs.txt))
+
+allcontactmatrices: ${CMS} | LMICcontact_matrices.txt
+
+${INTINPUTDIR}/%/contact_matrices.rds: create_contact_matrices.R
+	mkdir -p $(@D)
+	Rscript $^ ${COVIDMPATH} $* PLACEHOLDER $@
+
+testcm: ${INTINPUTDIR}/caboverde/contact_matrices.rds | LMICcontact_matrices.txt
+
 
 LMICargs.txt: LMIC.txt
 	sed "s/ //g" $^ > $@
 	sed -i '' "s/$$/-res\.rds/" $@
+
+
+
 
 TARS := $(addprefix ${DATADIR}/,$(shell cat LMICargs.txt))
 
