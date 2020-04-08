@@ -10,6 +10,7 @@ params:
   contactmatrices: "`r matrix()`"
   poppyra: "`r integer()`"
   refday: "1970-01-01"
+  day0: "2020-04-01"
 title: "`r sprintf('Report for %s', params$location)`"
 ---
 ```{r echo=FALSE, include=FALSE}
@@ -99,18 +100,26 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
     keyby = .(run, date, population, compartment)
   ]
   
-  p <- ggplot(refdt) +
-    aes(date, value, group=run) +
-  #  facet_grid(age ~ ., scales = "free_y") +
-    geom_line(alpha = 0.1) +
-    coord_cartesian(expand = FALSE, clip = "off") +
+  
+  p <- refdt %>%
+    group_by(date) %>% 
+    summarise(mean_value = mean(value), 
+              std_value=sd(value),
+              min_value = min(value),
+              max_value = max(value)) %>% 
+    ggplot(aes(x=date, y=mean_value)) +
+    geom_ribbon(aes(x=date, 
+                    ymin=min_value,#mean_value - std_value, 
+                    ymax = max_value), # mean_value + std_value),
+                    alpha=0.3)+
+    geom_line()+
+    # coord_cartesian(expand = FALSE, clip = "off") +
     scale_y_continuous(title) +
-    dtscale +
+    # dtscale +
     thm_main + theme(
       legend.position = c(0, 1),
       legend.justification = c(0, 1)
     )
-  
   peaks.dt <- refdt[,
     .(peakdate = date[which.max(value)], peak=max(value)),
     by=.(run, population, compartment)
@@ -130,13 +139,25 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
   }, by=.(population, compartment)
   ]
   
-  ptiming <- ggplot(timing.dt) + aes(y="All", yend="All") +
+  if(exists(day0)){
+    start_date <- as.Date(day0) 
+    timing.dt <- timing.dt %>%  
+      mutate_if(is.numeric, function(x) {start_date + x})
+    timing_limits <- c(start_date, start_date + ulim)
+    timing_scale <- scale_x_date("Month")
+  }else{
+    timing_limits <- c(refday, refday+ulim)
+    timing_scale <- dtscale
+  }
+  ptiming <- timing.dt %>% 
+    ggplot() + aes(y="All", yend="All") +
     geom_segment(aes(x=lo.lo, xend=hi.hi), size = 1) +
     geom_segment(aes(x=lo, xend=hi), size = 2) +
     geom_point(aes(x=md), size = 3) +
-    annotate("text", -Inf, Inf, label = "Peak Timing", hjust = 0, vjust = 0.5) +
-    coord_cartesian(xlim = c(refday, refday+ulim), expand = TRUE, clip = "off") +
-    dtscale +
+    annotate("text", min(timing_limits),
+             Inf, label = "Peak Timing", hjust = 0, vjust = 0.5)+
+    coord_cartesian(xlim = timing_limits, expand = TRUE, clip = "off") +
+    timing_scale + 
     thm_bottom
   
   ppeak <- ggplot(size.dt) + aes(x="All", xend="All") +
@@ -297,7 +318,7 @@ sp_contact_matrices = function(mat, legpos = "right")
       theme_bw() +
       theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
             strip.background = element_rect(fill = "white", colour = "white"),
-            legend.position = legpos)
+            legend.position = legpos,)
 }
 plot_grid(plotter(poppyra), sp_contact_matrices(contactmatrices), ncol = 2)
 ```
