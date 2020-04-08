@@ -151,8 +151,8 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
   }, by=.(population, compartment)
   ]
   
-  if(exists("day0")){
-    start_date <- as.Date(day0) 
+  if(!is.na(params$day0)){
+    start_date <- as.Date(params$day0) 
     timing.dt <- timing.dt %>%  
       mutate_if(is.numeric, function(x) {start_date + x})
     timing_limits <- c(start_date, start_date + ulim)
@@ -336,14 +336,14 @@ sp_contact_matrices = function(mat, legpos = "right")
 plot_grid(plotter(poppyra), sp_contact_matrices(contactmatrices), ncol = 2)
 ```
 
-```{r}
+```{r echo=FALSE,}
 
 calculate_max_peak <- function(subdt){
-  if(exists("day0")){
+  if(!is.na(params$day0)){
     refdt <- calculate_reference_table(subdt)
     peaks.dt <- calculate_peaks(refdt)
     timing.dt <- calculate_timings(peaks.dt)
-    start_date <- as.Date(day0)
+    start_date <- as.Date(params$day0)
     return(paste0(start_date + timing.dt$md[1], " to ", start_date + timing.dt$hi[1]))
   }else{
     return("")
@@ -354,10 +354,10 @@ calculate_max_peak_and_days <- function(subdt){
   
   peaks.dt <- calculate_peaks(refdt)
   timing.dt <- calculate_timings(peaks.dt)
-  if(exists("day0")){
-    start_date <- as.Date(day0)
-    return(paste0(start_date + timing.dt$md[1], " to ", start_date + timing.dt$hi[1]),
-           ", which is ", timing.dt$md[1], " to ", timing.dt$hi[1]," days after the first reported case")
+  if(!is.na(params$day0)){
+    start_date <- as.Date(params$day0)
+    return(paste0(start_date + timing.dt$md[1], " to ", start_date + timing.dt$hi[1],
+           ", which is ", timing.dt$md[1], " to ", timing.dt$hi[1]," days after the first reported case"))
   }else{
     return(paste0(timing.dt$md[1], " to ", timing.dt$hi[1],  " days after the first reported case"))
   }
@@ -384,14 +384,13 @@ peaks_dates <- list(cases_reported = calculate_max_peak(subdyn[compartment == "c
                           nonicu_p = calculate_max_peak(subdyn[compartment == "nonicu_p"]),
                           icu_p = calculate_max_peak(subdyn[compartment == "icu_p"]),
                           death_o = calculate_max_peak(subdyn[compartment == "death_o"]))
-maximum_date <- 
 ```
 
 # Overall Results
 
 The following series of plots show overall outcomes, particularly: incidence of cases, prevalence of hospitalised patients, and incidence and cumulative incidence of deaths.
 
-Figure 1 shows that the median peak number of symptomatic cases across all model projections is 500 000, forecast to occur on `r cases_peaks_dates$cases_reported`. The predicted peak in hospitalised cases occurs about 15-16 days later (Figures 2 and 3), with a median of 35,000 cases in ward and 18,000 in ICU on `r peaks_dates$nonicup_p`. The peak daily number of deaths is predicted to follow about 10 days later (`r peaks_date$death_o`), with the median estimate of 750 new deaths that day (Figure 4). Figure 5 shows that the cumulative number of deaths is predicted to be 13 500 (median), occurring on ***insert date/range if data available*** (about 107 days after the first reported case). 
+Figure 1 shows that the median peak number of symptomatic cases across all model projections is 500 000, forecast to occur on `r peaks_dates_and_days_after$cases_reported`. The predicted peak in hospitalised cases occurs about 15-16 days later (Figures 2 and 3), with a median of 35,000 cases in ward and 18,000 in ICU on `r peaks_dates$nonicup_p`. The peak daily number of deaths is predicted to follow about 10 days later (`r peaks_dates$death_o`), with the median estimate of 750 new deaths that day (Figure 4). Figure 5 shows that the cumulative number of deaths is predicted to be 13 500 (median), occurring on ***insert date/range if data available*** (about 107 days after the first reported case). 
 
 ```{r echo=FALSE, fig.height=9}
 plot_grid(
