@@ -1,7 +1,7 @@
 
 -include local.makefile
 
-COVIDMPATH ?= ..
+COVIDMPATH ?= ../covidm
 REPDIR ?= ~/Dropbox/Covid_lmic/reports
 DATADIR ?= ~/Dropbox/covidm_reports
 INTINPUTDIR := ${DATADIR}/interventions/inputs
