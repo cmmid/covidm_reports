@@ -1,21 +1,24 @@
 #' default contact matrices
+suppressPackageStartupMessages({
+  require(data.table)
+})
 
 .args <- if (interactive()) c(
-  "../covidm", "uganda", "PLACEHOLDER",
+  "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
+  "../covidm", "uganda",
   "~/Dropbox/covidm_reports/interventions/inputs/uganda/contact_matrices.rds"
 ) else commandArgs(trailingOnly = TRUE)
 
-cm_path <- .args[1]
-target <- .args[2]
-lookup <- .args[3]
+lookup <- fread(.args[1])[, short := tolower(gsub("[^a-zA-Z]","",name))]
+cm_path <- .args[2]
+target <- .args[3]
 result <- tail(.args, 1)
 
 if (file.exists(result)) {
   warning(sprintf("Skipping %s; already exists.", target))
 } else {
   refcontactmatrices <- readRDS(sprintf("%s/data/all_matrices.rds", cm_path))
-  found <- grep(target, tolower(gsub(" ","",names(refcontactmatrices))))
-  
+  found <- lookup[short == target, ifelse(cm, name, cm_name)]
   if (length(found)) {
     saveRDS(refcontactmatrices[[found[1]]], tail(.args, 1))
   } else {

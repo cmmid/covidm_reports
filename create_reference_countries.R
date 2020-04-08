@@ -6,13 +6,17 @@ suppressPackageStartupMessages({
 #' get the data from contact matrices
 
 .args <- if (interactive()) c(
-  "..", "LMIC.txt" ## input path, output file
+  "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
+  "../covidm",
+  "LMIC.txt" ## input path, output file
 ) else commandArgs(trailingOnly = TRUE)
 
-cm_path = .args[1]
+ref <- fread(.args[1])
+cm_path = .args[2]
+
 # location_type == 4 => countries
 
-afr.countries <- c(
+lmic.countries <- c(
   "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso",
   "Burundi", "Cabo Verde", "Cameroon", "Central African Republic",
   "Chad", "Comoros", "Congo", "Cote d'Ivoire",
@@ -27,16 +31,17 @@ afr.countries <- c(
   "Western Sahara", "Zambia", "Zimbabwe", "Cambodia"
 )
 
+ref_pops <- readRDS(sprintf("%s/data/wpp2019_pop2020.rds", cm_path))
+missing_pop <- setdiff(lmic.countries, ref_pops[, as.character(unique(name))])
+
 ref_cm <- readRDS(sprintf("%s/data/all_matrices.rds", cm_path))
-afr.countries <- intersect(names(ref_cm), afr.countries)
+missing_cm <- setdiff(lmic.countries, names(ref_cm))
+noreplacements <- setdiff(missing_cm, ref$name)
 
-ref_pop <- readRDS(sprintf("%s/data/wpp2019_pop2020.rds", cm_path))[
-  location_type == 4
-][name %in% afr.countries]
 
-afr.countries <- intersect(ref_pop[, as.character(unique(name))], afr.countries)
+fnl.countries <- setdiff(lmic.countries, unique(c(noreplacements, missing_pop)))
 
-write.table(afr.countries, file=tail(.args, 1), row.names = F, col.names = F, quote = F)
+write.table(fnl.countries, file=tail(.args, 1), row.names = F, col.names = F, quote = F)
 
 
 

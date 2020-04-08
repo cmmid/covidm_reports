@@ -13,14 +13,14 @@ R = Rscript $^ $@
 
 # This file forms the reference locales for which we generate reports
 
-LMIC.txt: X-LMIC.R
+LMIC.txt: create_reference_countries.R ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv
 	Rscript $^ ${COVIDMPATH} $@
 
 ###############################################################################
 # This is for generating contact matrices
 
 LMICcontact_matrices.txt: LMIC.txt
-	sed "s/ //g" $^ > $@-tmp
+	sed "s/[^a-zA-Z]//g" $^ > $@-tmp
 	tr '[:upper:]' '[:lower:]' < $@-tmp > $@
 	rm $@-tmp
 	sed -i '' "s/$$/\/contact_matrices\.rds/" $@
@@ -29,9 +29,9 @@ CMS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICcontact_matrices.txt))
 
 allcontactmatrices: ${CMS} | LMICcontact_matrices.txt
 
-${INTINPUTDIR}/%/contact_matrices.rds: create_contact_matrices.R
+${INTINPUTDIR}/%/contact_matrices.rds: create_contact_matrices.R ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv
 	mkdir -p $(@D)
-	Rscript $^ ${COVIDMPATH} $* PLACEHOLDER $@
+	Rscript $^ ${COVIDMPATH} $* $@
 	[ -f "$@" ] && touch $@
 
 testcm: ${INTINPUTDIR}/uganda/contact_matrices.rds | LMICcontact_matrices.txt
@@ -40,7 +40,7 @@ testcm: ${INTINPUTDIR}/uganda/contact_matrices.rds | LMICcontact_matrices.txt
 # This is for generating parameter sets
 
 LMICparams_set.txt: LMIC.txt
-	sed "s/ //g" $^ > $@-tmp
+	sed "s/[^a-zA-Z]//g" $^ > $@-tmp
 	tr '[:upper:]' '[:lower:]' < $@-tmp > $@
 	rm $@-tmp
 	sed -i '' "s/$$/\/params_set\.rds/" $@
@@ -63,7 +63,7 @@ testps: ${INTINPUTDIR}/caboverde/params_set.rds | LMICparams_set.txt
 
 
 LMICargs.txt: LMIC.txt
-	sed "s/ //g" $^ > $@
+	sed "s/[^a-zA-Z]//g" $^ > $@
 	sed -i '' "s/$$/-res\.rds/" $@
 
 
