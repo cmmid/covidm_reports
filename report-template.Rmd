@@ -108,7 +108,7 @@ calculate_peaks <- function(refdt){
   ])
 }
 
-calculate_timings <- function(peak.dt){
+calculate_timings <- function(peaks.dt){
   return(peaks.dt[peak != 0, {
     qs <- quantile(peakdate, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
     names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi")
@@ -142,7 +142,7 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
     )
   
   peaks.dt <- calculate_peaks(refdt)
-  timings.dt <- calculate_timings(peaks.df)
+  timing.dt <- calculate_timings(peaks.dt)
   
   size.dt <- peaks.dt[peak != 0,{
     qs <- quantile(peak, probs = c(0.025, 0.25, 0.5, 0.75, 0.975, 1.0))
@@ -151,7 +151,7 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
   }, by=.(population, compartment)
   ]
   
-  if(exists(day0)){
+  if(exists("day0")){
     start_date <- as.Date(day0) 
     timing.dt <- timing.dt %>%  
       mutate_if(is.numeric, function(x) {start_date + x})
@@ -162,14 +162,15 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
     timing_scale <- dtscale
   }
   ptiming <- timing.dt %>% 
-    ggplot() + aes(y="All", yend="All") +
+    ggplot() +
+    aes(y="All", yend="All") +
     geom_segment(aes(x=lo.lo, xend=hi.hi), size = 1) +
     geom_segment(aes(x=lo, xend=hi), size = 2) +
     geom_point(aes(x=md), size = 3) +
     annotate("text", min(timing_limits),
              Inf, label = "Peak Timing", hjust = 0, vjust = 0.5)+
     coord_cartesian(xlim = timing_limits, expand = TRUE, clip = "off") +
-    timing_scale + 
+    timing_scale +
     thm_bottom
   
   ppeak <- ggplot(size.dt) + aes(x="All", xend="All") +
@@ -335,11 +336,62 @@ sp_contact_matrices = function(mat, legpos = "right")
 plot_grid(plotter(poppyra), sp_contact_matrices(contactmatrices), ncol = 2)
 ```
 
+```{r}
+
+calculate_max_peak <- function(subdt){
+  if(exists("day0")){
+    refdt <- calculate_reference_table(subdt)
+    peaks.dt <- calculate_peaks(refdt)
+    timing.dt <- calculate_timings(peaks.dt)
+    start_date <- as.Date(day0)
+    return(paste0(start_date + timing.dt$md[1], " to ", start_date + timing.dt$hi[1]))
+  }else{
+    return("")
+  }
+}
+calculate_max_peak_and_days <- function(subdt){
+  refdt <- calculate_reference_table(subdt)
+  
+  peaks.dt <- calculate_peaks(refdt)
+  timing.dt <- calculate_timings(peaks.dt)
+  if(exists("day0")){
+    start_date <- as.Date(day0)
+    return(paste0(start_date + timing.dt$md[1], " to ", start_date + timing.dt$hi[1]),
+           ", which is ", timing.dt$md[1], " to ", timing.dt$hi[1]," days after the first reported case")
+  }else{
+    return(paste0(timing.dt$md[1], " to ", timing.dt$hi[1],  " days after the first reported case"))
+  }
+}
+
+# TODO work out how this should be calculated properly.
+calculate_total_deaths_date <- function(subdt){
+  mean(subdt %>% 
+    group_by(run, date) %>% 
+    summarise(total_value = sum(value)) %>% 
+    arrange(run, date) %>% 
+    group_by(run) %>%
+    mutate(cum_value = cumsum(total_value)) %>% 
+    ungroup() %>% 
+    group_by(date) %>% 
+    summarise(median_value=round(median(cum_value))) %>% 
+    filter(median_value >= 13500) %>% select(date) %>% pull())
+}
+peaks_dates_and_days_after <- list(cases_reported = calculate_max_peak_and_days(subdyn[compartment == "cases_reported"]),
+                          nonicu_p = calculate_max_peak_and_days(subdyn[compartment == "nonicu_p"]),
+                          icu_p = calculate_max_peak_and_days(subdyn[compartment == "icu_p"]),
+                          death_o = calculate_max_peak_and_days(subdyn[compartment == "death_o"]))
+peaks_dates <- list(cases_reported = calculate_max_peak(subdyn[compartment == "cases_reported"]),
+                          nonicu_p = calculate_max_peak(subdyn[compartment == "nonicu_p"]),
+                          icu_p = calculate_max_peak(subdyn[compartment == "icu_p"]),
+                          death_o = calculate_max_peak(subdyn[compartment == "death_o"]))
+maximum_date <- 
+```
+
 # Overall Results
 
 The following series of plots show overall outcomes, particularly: incidence of cases, prevalence of hospitalised patients, and incidence and cumulative incidence of deaths.
 
-Figure 1 shows that the median peak number of symptomatic cases across all model projections is 500 000, forecast to occur on ***insert date/range if data available***, which is 45 days after the first reported case. The predicted peak in hospitalised cases occurs about 15-16 days later (Figures 2 and 3), with a median of 35,000 cases in ward and 18,000 in ICU on ***insert date/range if data available***. The peak daily number of deaths is predicted to follow about 10 days later (***insert date/range if data available***), with the median estimate of 750 new deaths that day (Figure 4). Figure 5 shows that the cumulative number of deaths is predicted to be 13 500 (median), occurring on ***insert date/range if data available*** (about 107 days after the first reported case). 
+Figure 1 shows that the median peak number of symptomatic cases across all model projections is 500 000, forecast to occur on `r cases_peaks_dates$cases_reported`. The predicted peak in hospitalised cases occurs about 15-16 days later (Figures 2 and 3), with a median of 35,000 cases in ward and 18,000 in ICU on `r peaks_dates$nonicup_p`. The peak daily number of deaths is predicted to follow about 10 days later (`r peaks_date$death_o`), with the median estimate of 750 new deaths that day (Figure 4). Figure 5 shows that the cumulative number of deaths is predicted to be 13 500 (median), occurring on ***insert date/range if data available*** (about 107 days after the first reported case). 
 
 ```{r echo=FALSE, fig.height=9}
 plot_grid(
