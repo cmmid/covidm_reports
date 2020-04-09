@@ -4,10 +4,10 @@ suppressPackageStartupMessages({
 
 .args <- if (interactive()) c(
   "helper_functions.R",
-  "../covidm", "uganda", "186", 
+  "../covidm", "uganda", "001", 
   sprintf("~/Dropbox/covidm_reports/interventions/%s",c(
     "inputs",
-    "uganda/186.rds"
+    "uganda/001.rds"
   ))
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -18,6 +18,9 @@ scenario_index <- as.integer(.args[4])
 inputpth <- path.expand(.args[5])
 detailinputs <- sprintf("%s/%s", inputpth, country)
 tarfile <- tail(.args, 1)
+unmitigatedname <- gsub("\\d+\\.rds$","unmit_timings.rds", tarfile)
+
+
 cm_force_rebuild = F;
 cm_build_verbose = F;
 cm_force_shared = T
@@ -46,12 +49,8 @@ s <- scenarios_overview[index == scenario_index, s]
 attach(scenarios[[scen]][s,])
 
 if (scen != 1){
-  unmitigated <- readRDS(gsub("\\d+\\.rds$","001.rds", tarfile))
-  # TODO assert: params_set[[1]]$pop always has size 1
-  tpop <- sum(params_set[[1]]$pop[[1]]$size)
-  
-  ## TODO: this probably not right? want population wide incidence?
-  unmitigated[, incidence := value/tpop ]
+  # should already have incidence set
+  unmitigated <- readRDS(unmitigatedname)[compartment == "cases"]
 }
 
 #' set up paramaters
@@ -108,14 +107,15 @@ for(i in 1:nrow(run_options)){
     
   }
   
+  # if we have bootstrap 
+  refcm <- if (is.null(names(contact_matrices))) { contact_matrices[[i]] } else { contact_matrices }
+  names(refcm) <- gsub("cm_","",names(refcm))
+  
   #use contact matrices for current sample
   params$pop <- lapply(
     params$pop,
     function(x){
-      x$matrices$home <- contact_matrices[[i]]$cm_home
-      x$matrices$work <- contact_matrices[[i]]$cm_work
-      x$matrices$school <- contact_matrices[[i]]$cm_school
-      x$matrices$other <- contact_matrices[[i]]$cm_other
+      x$matrices <- refcm
       return(x)
     }
   )
@@ -147,11 +147,14 @@ for(i in 1:nrow(run_options)){
   results_cases[[length(results_cases) + 1]] <- result
 }
 
-allres <- rbindlist(results_cases)[, {
-  qs <- c(quantile(value, probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1)), mean(value))
-  names(qs) <- c("mn","lo95","lo50","md","hi50","hi95","mx","mu")
-  as.list(qs)
-}, keyby=.(t, population, group, compartment)]
+allbind <- rbindlist(results_cases)
 
+if (scen == 1){
+  tpop <- sum(params_set[[1]]$pop[[1]]$size)
+  inc <- allbind[,.(
+    incidence = sum(value)/tpop
+  ), keyby=.(run, t, compartment)]
+  saveRDS(inc, unmitigatedname)
+}
 
-saveRDS(allres, tarfile)
+saveRDS(allbind[value != 0], tarfile)

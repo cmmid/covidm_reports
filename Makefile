@@ -65,7 +65,7 @@ ${DATADIR}/interventions/%.rds: run_scenarios.R helper_functions.R
 	mkdir -p $(@D)
 	time Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
-testint: ${DATADIR}/interventions/uganda/002.rds
+testint: ${DATADIR}/interventions/caboverde/001.rds
 
 # INTSCENARIOS := $(foreach C,${INTCOUNTRIES},$(patsubst %,%_${C},$(shell seq 2 189)))
 # INTSCENARIOS := $(foreach CTY,${ROOTS},$(patsubst %,${DATADIR}/interventions/${CTY}/%.rds,$(shell seq -f%03g 2 189)))
