@@ -1,5 +1,6 @@
 suppressPackageStartupMessages({
   require(data.table)
+  require(qs)
 })
 
 .args <- if (interactive()) c(
@@ -7,7 +8,7 @@ suppressPackageStartupMessages({
   "../covidm", "uganda", "001", 
   sprintf("~/Dropbox/covidm_reports/interventions/%s",c(
     "inputs",
-    "uganda/001.rds"
+    "uganda/001.qs"
   ))
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -18,7 +19,7 @@ scenario_index <- as.integer(.args[4])
 inputpth <- path.expand(.args[5])
 detailinputs <- sprintf("%s/%s", inputpth, country)
 tarfile <- tail(.args, 1)
-unmitigatedname <- gsub("\\d+\\.rds$","unmit_timings.rds", tarfile)
+unmitigatedname <- gsub("\\d+\\.qs$","unmit_timings.qs", tarfile)
 
 
 cm_force_rebuild = F;
@@ -50,7 +51,7 @@ attach(scenarios[[scen]][s,])
 
 if (scen != 1){
   # should already have incidence set
-  unmitigated <- readRDS(unmitigatedname)[compartment == "cases"]
+  unmitigated <- qread(unmitigatedname)[compartment == "cases"]
 }
 
 #' set up paramaters
@@ -154,7 +155,7 @@ if (scen == 1){
   inc <- allbind[,.(
     incidence = sum(value)/tpop
   ), keyby=.(run, t, compartment)]
-  saveRDS(inc, unmitigatedname)
+  qsave(inc, unmitigatedname)
 }
 
-saveRDS(allbind[value != 0], tarfile)
+qsave(allbind[value != 0], tarfile)

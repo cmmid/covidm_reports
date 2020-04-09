@@ -61,11 +61,11 @@ testps: ${INTINPUTDIR}/caboverde/params_set.rds | LMICparams_set.txt
 
 ROOTS := $(shell cat LMICroots.txt)
 
-${DATADIR}/interventions/%.rds: run_scenarios.R helper_functions.R
+${DATADIR}/interventions/%.qs: run_scenarios.R helper_functions.R
 	mkdir -p $(@D)
 	time Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
-testint: ${DATADIR}/interventions/caboverde/001.rds
+testint: ${DATADIR}/interventions/caboverde/002.qs
 
 # INTSCENARIOS := $(foreach C,${INTCOUNTRIES},$(patsubst %,%_${C},$(shell seq 2 189)))
 # INTSCENARIOS := $(foreach CTY,${ROOTS},$(patsubst %,${DATADIR}/interventions/${CTY}/%.rds,$(shell seq -f%03g 2 189)))
