@@ -414,7 +414,7 @@ sp_contact_matrices = function(mat, legpos = "right")
 plot_grid(plotter(poppyra), sp_contact_matrices(contactmatrices), ncol = 2)
 ```
 
-```{r echo=FALSE, waring=FALSE}
+```{r echo=FALSE, warning=FALSE}
 
 calculate_max_peak <- function(subdt){
   if(!is.na(params$day0)){
@@ -491,7 +491,7 @@ calculate_dates_difference <- function(subdt1, subdt2){
     full_join(calculate_peaks(refdt2) %>%   
                 pivot_wider(id_cols=c(run, population, peakdate), 
                             names_from = compartment, values_from = peak) %>% 
-                rename(peakdate2=peakdate)) %>% 
+                rename(peakdate2=peakdate), by=c("run", "population")) %>% 
     mutate(peakdate=peakdate2-peakdate1)
   
   days_difference <- calculate_timings(peaks.dt, by=c("population"))
