@@ -414,7 +414,7 @@ sp_contact_matrices = function(mat, legpos = "right")
 plot_grid(plotter(poppyra), sp_contact_matrices(contactmatrices), ncol = 2)
 ```
 
-```{r echo=FALSE}
+```{r echo=FALSE, waring=FALSE}
 
 calculate_max_peak <- function(subdt){
   if(!is.na(params$day0)){
