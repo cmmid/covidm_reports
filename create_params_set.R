@@ -5,8 +5,8 @@ suppressPackageStartupMessages({
 
 .args <- if (interactive()) c(
   "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
-  "../covidm", "angola",
-  "~/Dropbox/covidm_reports/interventions/inputs/angola/params_set.rds"
+  "../covidm", "zimbabwe",
+  "~/Dropbox/covidm_reports/interventions/inputs/zimbabwe/params_set.rds"
 ) else commandArgs(trailingOnly = TRUE)
 
 reference = fread(.args[1])
@@ -57,8 +57,6 @@ popnorm <- function(x){
 
 params1$pop <- lapply(params1$pop, popnorm)
 
-#run for 2 years
-params1$time1 <- as.Date(params1$time1) + 365
 params_set[[1]] <- params1
 
 params2 <- cm_parameters_SEI3R(
@@ -66,17 +64,8 @@ params2 <- cm_parameters_SEI3R(
   deterministic=FALSE
 )
 
-#get proportion high-risk by age
-if (any(as.character(cm_highrisk$country) == country)) {
-  prop_highrisk <- cm_high_risk_prevalence(country, T)[, highrisk]
-} else {
-  prop_highrisk <- cm_high_risk_prevalence(matref, T)[, highrisk]
-}
-
-#no shielding in <25yo
-prop_highrisk[c(1:5)] <- 0
-#full shielding for >60yo
-prop_highrisk[c(13:16)] <- 1
+#no shielding in <60yo, full eligibility for shielding in 60+
+prop_highrisk <- c(rep(0, 12), rep(1, 4))
 
 #no seeding events in high risk population
 params2$pop[[2]]$name <- paste0(params2$pop[[2]]$name, " - high risk")
@@ -90,7 +79,6 @@ params2$pop[[2]]$seed_times <- 1e6
 
 #normal mixing between populations
 params2$travel <- matrix(rep(1, 4), 2)
-params2$time1 <- as.Date(params2$time1) + 365
 params_set[[2]] <- params2
 
 saveRDS(params_set, outfile)
