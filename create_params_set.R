@@ -73,8 +73,8 @@ if (any(as.character(cm_highrisk$country) == country)) {
   prop_highrisk <- cm_high_risk_prevalence(matref, T)[, highrisk]
 }
 
-#no shielding in <25yo
-prop_highrisk[c(1:5)] <- 0
+#no shielding in <60yo
+prop_highrisk[c(1:12)] <- 0
 #full shielding for >60yo
 prop_highrisk[c(13:16)] <- 1
 
