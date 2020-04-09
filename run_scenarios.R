@@ -3,18 +3,20 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "..", "helper_functions.R",
-  "186", "Uganda",
-  "~/Dropbox/Covid_LMIC/reports/data/interventions/inputs",
-  "~/Dropbox/Covid_LMIC/reports/data/interventions/cases_sceni_186_Uganda.rds"
+  "helper_functions.R",
+  "../covidm", "uganda", "186", 
+  sprintf("~/Dropbox/covidm_reports/interventions/%s",c(
+    "inputs",
+    "uganda/186.rds"
+  ))
 ) else commandArgs(trailingOnly = TRUE)
 
-cm_path = .args[1]
-source(.args[2])
-scenario_index <- as.integer(.args[3])
-country <- .args[4]
+source(.args[1])
+cm_path = .args[2]
+country <- .args[3]
+scenario_index <- as.integer(.args[4])
 inputpth <- path.expand(.args[5])
-detailinputs <- sprintf("%s/%s", inputpth, tolower(country))
+detailinputs <- sprintf("%s/%s", inputpth, country)
 tarfile <- tail(.args, 1)
 cm_force_rebuild = F;
 cm_build_verbose = F;
@@ -44,9 +46,11 @@ s <- scenarios_overview[index == scenario_index, s]
 attach(scenarios[[scen]][s,])
 
 if (scen != 1){
-  unmitigated <- readRDS(gsub("_\\d+_","_1_", tarfile))
+  unmitigated <- readRDS(gsub("\\d+\\.rds$","001.rds", tarfile))
   # TODO assert: params_set[[1]]$pop always has size 1
   tpop <- sum(params_set[[1]]$pop[[1]]$size)
+  
+  ## TODO: this probably not right? want population wide incidence?
   unmitigated[, incidence := value/tpop ]
 }
 
@@ -138,10 +142,16 @@ for(i in 1:nrow(run_options)){
     model_seed = run_options[i, model_seed]
   )$dynamics[compartment == "cases"]
   
-  result[, "scenario"] <- s
   result[, "run"] <- i
   
   results_cases[[length(results_cases) + 1]] <- result
 }
 
-saveRDS(rbindlist(results_cases), tarfile)
+allres <- rbindlist(results_cases)[, {
+  qs <- c(quantile(value, probs = c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1)), mean(value))
+  names(qs) <- c("mn","lo95","lo50","md","hi50","hi95","mx","mu")
+  as.list(qs)
+}, keyby=.(t, population, group, compartment)]
+
+
+saveRDS(allres, tarfile)

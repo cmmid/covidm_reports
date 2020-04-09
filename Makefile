@@ -16,14 +16,18 @@ R = Rscript $^ $@
 LMIC.txt: create_reference_countries.R ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv
 	Rscript $^ ${COVIDMPATH} $@
 
+# This is for output root targets
+
+LMICroots.txt: LMIC.txt
+	sed "s/[^a-zA-Z]//g" $^ > $@-tmp
+	tr '[:upper:]' '[:lower:]' < $@-tmp > $@
+
+
 ###############################################################################
 # This is for generating contact matrices
 
-LMICcontact_matrices.txt: LMIC.txt
-	sed "s/[^a-zA-Z]//g" $^ > $@-tmp
-	tr '[:upper:]' '[:lower:]' < $@-tmp > $@
-	rm $@-tmp
-	sed -i '' "s/$$/\/contact_matrices\.rds/" $@
+LMICcontact_matrices.txt: LMICroots.txt
+	sed "s/$$/\/contact_matrices\.rds/" $^ > $@
 
 CMS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICcontact_matrices.txt))
 
@@ -39,28 +43,33 @@ testcm: ${INTINPUTDIR}/uganda/contact_matrices.rds | LMICcontact_matrices.txt
 ###############################################################################
 # This is for generating parameter sets
 
-LMICparams_set.txt: LMIC.txt
-	sed "s/[^a-zA-Z]//g" $^ > $@-tmp
-	tr '[:upper:]' '[:lower:]' < $@-tmp > $@
-	rm $@-tmp
-	sed -i '' "s/$$/\/params_set\.rds/" $@
+LMICparams_set.txt: LMICroots.txt
+	sed "s/$$/\/params_set\.rds/" $^ > $@
 
 PSS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICparams_set.txt))
 
 allparamsets: ${PSS} | LMICparams_set.txt
 
-${INTINPUTDIR}/%/params_set.rds: create_params_set.R
+${INTINPUTDIR}/%/params_set.rds: create_params_set.R ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv
 	mkdir -p $(@D)
-	Rscript $^ ${COVIDMPATH} $* PLACEHOLDER $@
+	Rscript $^ ${COVIDMPATH} $* $@
 
 testps: ${INTINPUTDIR}/caboverde/params_set.rds | LMICparams_set.txt
 
 
+# All the interventions
 
+ROOTS := $(shell cat LMICroots.txt)
 
+${DATADIR}/interventions/%.rds: run_scenarios.R helper_functions.R
+	mkdir -p $(@D)
+	time Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
+testint: ${DATADIR}/interventions/uganda/002.rds
 
-
+# INTSCENARIOS := $(foreach C,${INTCOUNTRIES},$(patsubst %,%_${C},$(shell seq 2 189)))
+# INTSCENARIOS := $(foreach CTY,${ROOTS},$(patsubst %,${DATADIR}/interventions/${CTY}/%.rds,$(shell seq -f%03g 2 189)))
+# allints: $(foreach CTY,${ROOTS},$(patsubst %,${DATADIR}/interventions/${CTY}/%.rds,$(shell seq 2 189)))
 
 LMICargs.txt: LMIC.txt
 	sed "s/[^a-zA-Z]//g" $^ > $@
