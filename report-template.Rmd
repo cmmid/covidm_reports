@@ -414,7 +414,7 @@ sp_contact_matrices = function(mat, legpos = "right")
 plot_grid(plotter(poppyra), sp_contact_matrices(contactmatrices), ncol = 2)
 ```
 
-```{r echo=FALSE,}
+```{r echo=FALSE}
 
 calculate_max_peak <- function(subdt){
   if(!is.na(params$day0)){
@@ -422,7 +422,7 @@ calculate_max_peak <- function(subdt){
     peaks.dt <- calculate_peaks(refdt)
     timing.dt <- calculate_timings(peaks.dt)
     start_date <- as.Date(params$day0)
-    return(paste0(start_date + timing.dt$md[1], " to ", start_date + timing.dt$hi[1]))
+    return(paste0(format(start_date + timing.dt$md[1], "%d/%m/%Y"), " to ", format(start_date + timing.dt$hi[1], "%d/%m/%Y")))
   }else{
     return("")
   }
@@ -434,7 +434,7 @@ calculate_max_peak_and_days <- function(subdt){
   timing.dt <- calculate_timings(peaks.dt)
   if(!is.na(params$day0)){
     start_date <- as.Date(params$day0)
-    return(paste0(start_date + timing.dt$md[1], " to ", start_date + timing.dt$hi[1],
+    return(paste0(format(start_date + timing.dt$md[1], "%d/%m/%Y"), " to ",format( start_date + timing.dt$hi[1], "%d/%m/%Y"),
            ", which is ", timing.dt$md[1], " to ", timing.dt$hi[1]," days after the first reported case"))
   }else{
     return(paste0(timing.dt$md[1], " to ", timing.dt$hi[1],  " days after the first reported case"))
