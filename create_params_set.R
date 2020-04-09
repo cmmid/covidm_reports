@@ -5,8 +5,8 @@ suppressPackageStartupMessages({
 
 .args <- if (interactive()) c(
   "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
-  "../covidm", "angola",
-  "~/Dropbox/covidm_reports/interventions/inputs/angola/params_set.rds"
+  "../covidm", "zimbabwe",
+  "~/Dropbox/covidm_reports/interventions/inputs/zimbabwe/params_set.rds"
 ) else commandArgs(trailingOnly = TRUE)
 
 reference = fread(.args[1])
