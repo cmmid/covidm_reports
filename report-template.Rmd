@@ -18,6 +18,8 @@ suppressPackageStartupMessages({
   require(data.table)
   require(ggplot2)
   require(cowplot)
+  require(tidyverse)
+  require(ggthemr)
 })
 
 reduce_ages <- function (dt) {
@@ -94,33 +96,84 @@ thm_right <- theme_minimal(base_size = 8) + theme(
   panel.grid.major.x = element_blank()
 )
 
-calculate_reference_table <- function(subdt){
-  return(subdt[between(date, refday, refday+ulim)][,
-    .(value = sum(value)),
-    keyby = .(run, date, population, compartment)
-  ])
+calculate_reference_table <- function(subdt, 
+                                      by=c("run", "date", "population", "compartment")){
+  return(subdt %>% filter(date >= refday, date <= refday + ulim) %>% 
+    group_by_at(vars(one_of(by))) %>% 
+    summarise(value=sum(value)) %>% ungroup())
+  # return(subdt[between(date, refday, refday+ulim)][,
+  #   .(value = sum(value)),
+  #   keyby = .(run, date, population, compartment)
+  # ])
   }
 
-calculate_peaks <- function(refdt){
-  return(refdt[,
-    .(peakdate = date[which.max(value)], peak=max(value)),
-    by=.(run, population, compartment)
-  ])
+calculate_peaks <- function(refdt, by=c("run", "population", "compartment")){
+  return(refdt %>% group_by_at(vars(one_of(by))) %>% 
+    top_n(n=1, wt=value) %>% 
+    summarise(peakdate=date[1],
+              peak=max(value))%>% ungroup())
+  # return(refdt[,
+  #   .(peakdate = date[which.max(value)], peak=max(value)),
+  #   by=.(run, population, compartment)
+  # ])
 }
 
-calculate_timings <- function(peaks.dt){
-  return(peaks.dt[peak != 0, {
-    qs <- quantile(peakdate, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-    names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi")
-    as.list(qs)
-  }, by=.(population, compartment)
-  ])
+calculate_timings <- function(peaks.dt, by=c("population", "compartment")){
+  return(peaks.dt %>% group_by_at(vars(one_of(by))) %>% 
+    summarise(lo.lo=quantile(peakdate, 0.025),
+              lo=quantile(peakdate, 0.25),
+              md=quantile(peakdate, 0.5),
+              hi=quantile(peakdate, 0.75),
+              hi.hi=quantile(peakdate, 0.975),
+              mx=quantile(peakdate, 1.0),) %>% ungroup())
+  # return(peaks.dt[peak != 0, {
+  #   qs <- quantile(peakdate, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
+  #   names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi")
+  #   as.list(qs)
+  # }, by=.(population, compartment)
+  # ])
+}
+
+calculate_peak_sizes <- function(peaks.dt, by=c("population", "compartment")){
+  return(peaks.dt %>% group_by_at(vars(one_of(by))) %>% 
+    summarise(lo.lo=quantile(peak, 0.025),
+              lo=quantile(peak, 0.25),
+              md=quantile(peak, 0.5),
+              hi=quantile(peak, 0.75),
+              hi.hi=quantile(peak, 0.975),
+              mx=quantile(peak, 1.0)) %>% ungroup())
+  # return(peaks.dt[peak != 0,{
+  #   qs <- quantile(peak, probs = c(0.025, 0.25, 0.5, 0.75, 0.975, 1.0))
+  #   names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi","mx")
+  #   as.list(qs)
+  # }, by=.(population, compartment)
+  # ])
 }
 
 summary_tsplotter <- function(subdt, title, pop = poppyra) {
+  # First calculate all the data
+  
   refdt <- calculate_reference_table(subdt)
   
+  peaks.dt <- calculate_peaks(refdt)
+  timing.dt <- calculate_timings(peaks.dt)
+  size.dt <- calculate_peak_sizes(peaks.dt)
   
+  if(!is.na(params$day0)){
+    start_date <- as.Date(params$day0) 
+    timing.dt <- timing.dt %>%  
+      mutate_if(is.numeric, function(x) {start_date + x})
+    refdt <- refdt %>% 
+      mutate(date = start_date + date)
+    timing_limits <- c(start_date, start_date + ulim)
+    timing_scale <- scale_x_date("Date", date_breaks="1 month", date_labels="%b", expand=c(0,0))
+    timing_scale_null <- scale_x_date("Date", date_breaks="1 month", labels=NULL, expand=c(0,0))
+  }else{
+    timing_limits <- c(refday, refday+ulim)
+    timing_scale <- dtscale
+  }
+  
+  # Generate the plots
   p <- refdt %>%
     group_by(date) %>% 
     summarise(mean_value = mean(value), 
@@ -133,42 +186,25 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
                     ymax = max_value), # mean_value + std_value),
                     alpha=0.3)+
     geom_line()+
-    # coord_cartesian(expand = FALSE, clip = "off") +
+    coord_cartesian(expand = FALSE, clip = "off") +
     scale_y_continuous(title, labels = scales::label_number_auto()) +
-    # dtscale +
+    timing_scale_null+
     thm_main + theme(
       legend.position = c(0, 1),
       legend.justification = c(0, 1)
     )
   
-  peaks.dt <- calculate_peaks(refdt)
-  timing.dt <- calculate_timings(peaks.dt)
   
-  size.dt <- peaks.dt[peak != 0,{
-    qs <- quantile(peak, probs = c(0.025, 0.25, 0.5, 0.75, 0.975, 1.0))
-    names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi","mx")
-    as.list(qs)
-  }, by=.(population, compartment)
-  ]
   
-  if(!is.na(params$day0)){
-    start_date <- as.Date(params$day0) 
-    timing.dt <- timing.dt %>%  
-      mutate_if(is.numeric, function(x) {start_date + x})
-    timing_limits <- c(start_date, start_date + ulim)
-    timing_scale <- scale_x_date("Month")
-  }else{
-    timing_limits <- c(refday, refday+ulim)
-    timing_scale <- dtscale
-  }
   ptiming <- timing.dt %>% 
     ggplot() +
     aes(y="All", yend="All") +
     geom_segment(aes(x=lo.lo, xend=hi.hi), size = 1) +
     geom_segment(aes(x=lo, xend=hi), size = 2) +
     geom_point(aes(x=md), size = 3) +
-    annotate("text", min(timing_limits),
-             Inf, label = "Peak Timing", hjust = 0, vjust = 0.5)+
+    labs(subtitle = "Peak Timing")+
+    # annotate("text", min(timing_limits),
+    #          Inf, label = "Peak Timing", hjust = 0, vjust = 0.5)+
     coord_cartesian(xlim = timing_limits, expand = TRUE, clip = "off") +
     timing_scale +
     thm_bottom
@@ -179,7 +215,9 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
     geom_blank(aes(y=mx)) +
     geom_point(aes(y=md), size = 3) +
     coord_cartesian(ylim = c(0, NA), expand = TRUE, clip = "off") +
-    scale_y_continuous("Peak Number", sec.axis = dup_axis(), labels = scales::label_number_auto()) +
+    scale_y_continuous("Peak Number",
+                       sec.axis = dup_axis(),
+                       labels = scales::label_number_auto()) +
     thm_right
   
   return(
@@ -195,10 +233,25 @@ summary_tsplotter <- function(subdt, title, pop = poppyra) {
 
 tsplotter <- function(subdt, title, pop = poppyra) {
   
-  refdt <- subdt[between(date, refday, refday+ulim)][,
-    .(value = sum(value)),
-    keyby = .(run, date, population, compartment, age)
-  ]
+  refdt <- calculate_reference_table(subdt, by=c("run", "date", "population", "compartment", "age"))
+  
+  peaks.dt <- calculate_peaks(refdt, by=c("run", "age", "population", "compartment"))
+  timing.dt <- calculate_timings(peaks.dt, by=c("age", "population", "compartment"))
+  size.dt <- calculate_peak_sizes(peaks.dt, by=c("age", "population", "compartment"))
+  if(!is.na(params$day0)){
+    start_date <- as.Date(params$day0) 
+    timing.dt <- timing.dt %>%  
+      mutate_if(is.numeric, function(x) {start_date + x})
+    refdt <- refdt %>% 
+      mutate(date = start_date + date)
+    timing_limits <- c(start_date, start_date + ulim)
+    timing_scale <- scale_x_date("Date", date_breaks="1 month", date_labels="%b", expand=c(0,0))
+    timing_scale_null <- scale_x_date("Date", date_breaks="1 month", labels=NULL, expand=c(0,0))
+  }else{
+    timing_limits <- c(refday, refday+ulim)
+    timing_scale <- dtscale
+    timing_scale_null <- dtscale
+  }
   
   p <- ggplot(refdt) +
     aes(date, value, group=interaction(run, age), color=age) +
@@ -212,33 +265,58 @@ tsplotter <- function(subdt, title, pop = poppyra) {
       legend.position = c(0, 1),
       legend.justification = c(0, 1)
     )
-  
-  peaks.dt <- refdt[,
-    .(peakdate = date[which.max(value)], peak=max(value)),
-    by=.(run, age, population, compartment)
-  ]
-  
-  timing.dt <- peaks.dt[peak != 0, {
-    qs <- quantile(peakdate, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-    names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi")
-    as.list(qs)
-  }, by=.(age, population, compartment)
-  ]
-  
-  size.dt <- peaks.dt[peak != 0,{
-    qs <- quantile(peak, probs = c(0.025, 0.25, 0.5, 0.75, 0.975, 1.0))
-    names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi","mx")
-    as.list(qs)
-  }, by=.(age, population, compartment)
-  ]
+  ggthemr(palette = "flat")
+  p <- refdt %>%
+    group_by(date, age) %>% 
+    summarise(mean_value = mean(value), 
+              std_value=sd(value),
+              min_value = min(value),
+              max_value = max(value)) %>% 
+    ggplot(aes(x=date, y=mean_value, group=age)) +
+    geom_ribbon(aes(x=date, 
+                    ymin=min_value,#mean_value - std_value, 
+                    ymax = max_value, fill=age), # mean_value + std_value),
+                    alpha=0.2)+
+    geom_line(aes( colour=age))+
+    coord_cartesian(expand = FALSE, clip = "off") +
+    scale_y_continuous(title, labels = scales::label_number_auto()) +
+    scale_colour_discrete("Age")+
+    scale_fill_discrete("Age")+
+    timing_scale_null+
+    thm_main + theme(
+      legend.position = c(0, 1),
+      legend.justification = c(0, 1)
+    )
+  ggthemr_reset()
+  # peaks.dt <- refdt[,
+  #   .(peakdate = date[which.max(value)], peak=max(value)),
+  #   by=.(run, age, population, compartment)
+  # ]
+  # 
+  # timing.dt <- peaks.dt[peak != 0, {
+  #   qs <- quantile(peakdate, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
+  #   names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi")
+  #   as.list(qs)
+  # }, by=.(age, population, compartment)
+  # ]
+  # 
+  # size.dt <- peaks.dt[peak != 0,{
+  #   qs <- quantile(peak, probs = c(0.025, 0.25, 0.5, 0.75, 0.975, 1.0))
+  #   names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi","mx")
+  #   as.list(qs)
+  # }, by=.(age, population, compartment)
+  # ]
   
   ptiming <- ggplot(timing.dt) + aes(y=age, yend=age, color=age) +
     geom_segment(aes(x=lo.lo, xend=hi.hi), size = 1) +
     geom_segment(aes(x=lo, xend=hi), size = 2) +
     geom_point(aes(x=md), size = 3) +
-    annotate("text", -Inf, Inf, label = "Peak Timing", hjust = 0, vjust = 0.5) +
-    coord_cartesian(xlim = c(refday, refday+ulim), expand = FALSE, clip = "off") +
-    dtscale +
+    labs(subtitle = "Peak Timing")+ 
+    # annotate("text", -Inf, Inf, label = "Peak Timing", hjust = 0, vjust = 0.5) +
+    # coord_cartesian(xlim = c(refday, refday+ulim), expand = FALSE, clip = "off") +
+    coord_cartesian(xlim = timing_limits, expand = TRUE, clip = "off") +
+
+    timing_scale +
     scale_color_pop(guide = "none") +
     thm_bottom
   
@@ -248,7 +326,7 @@ tsplotter <- function(subdt, title, pop = poppyra) {
     geom_blank(aes(y=mx)) +
     geom_point(aes(y=md), size = 3) +
     coord_cartesian(ylim = c(0, NA), expand = FALSE, clip = "off") +
-    scale_y_continuous("Peak Number", sec.axis = dup_axis()) +
+    scale_y_continuous("Peak Number", sec.axis = dup_axis(), labels=scales::number_format()) +
     #dtscale +
     scale_color_pop(guide = "none") +
     thm_right
