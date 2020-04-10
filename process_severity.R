@@ -89,6 +89,15 @@ processSeverity <- function(cases_byage, aggregated=F, RR_hrisk_psymp_hosp=2, RR
   )
   hrisk_phosp_crit <- lrisk_phosp_crit*RR_hrisk_phosp_crit
   
+  model_output_byage_cases <- cbind(
+    cases_byage[severity_agegroup==1, c("scen", "s", "run")],
+    (t(
+      t(cases_lrisk[,as.character(1:nrow(severity_prop)),with=F])
+      +t(cases_hrisk[,as.character(1:nrow(severity_prop)),with=F])
+    ))
+  )
+  model_output_byage_cases[, "outcome"] <- "cases"
+  
   model_output_byage_cases_hospitalised <- cbind(
     cases_byage[severity_agegroup==1, c("scen", "s", "run")],
     (t(
@@ -107,7 +116,13 @@ processSeverity <- function(cases_byage, aggregated=F, RR_hrisk_psymp_hosp=2, RR
   )
   model_output_byage_cases_critical[, "outcome"] <- "cases_critical"
   
+  cases_lrisk[, "outcome"] <- "cases_lowrisk"
+  cases_hrisk[, "outcome"] <- "cases_highrisk"
+  
   model_output_byage <- rbindlist(list(
+    cases_lrisk,
+    cases_hrisk,
+    model_output_byage_cases,
     model_output_byage_cases_hospitalised,
     model_output_byage_cases_critical
   ))

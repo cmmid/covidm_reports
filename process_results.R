@@ -11,7 +11,10 @@ output_dir <- "~/Dropbox/covidm_hpc_output/"
 input_dir <- "~/Dropbox/covidm_reports/interventions/"
 
 country <- c("Uganda")
-time_limit <- 365
+time_limit <- 365*(9/12)
+
+RR_hrisk_hospitalised <- 1
+RR_hrisk_crtical_case <- 1
 
 scenario_overview <- readRDS(sprintf("%s/inputs/scenarios_overview.rds", input_dir))
 scenarios <- readRDS(sprintf("%s/inputs/scenarios.rds", input_dir))
@@ -52,7 +55,7 @@ prop_assumed_highrisk[c(1:12)] <- 0
 prop_assumed_highrisk[c(13:16)] <- 1
 
 phrisk_by_age <- data.table(
-  group = unique(unmitigated$group),
+  group = attr(unmitigated$group, "levels"),
   age_low = seq(0, by=5, length.out = 16),
   age_high = c(seq(4, by=5, length.out = 15), 120),
   prop_highrisk = prop_highrisk,
@@ -84,10 +87,14 @@ unmitigated <- merge(
 )
 
 #how many of cases are high-risk?
-unmitigated[, prop_hrisk := max(0, prop_highrisk - prop_assumed_highrisk*hirisk_prop_isolated), by=c("group", "population")]
-unmitigated[grepl("high", population, fixed=T), prop_hrisk := 1 - max(0, prop_assumed_highrisk*hirisk_prop_isolated - prop_highrisk), by=c("group", "population")]
+#unmitigated[, prop_hrisk := max(0, prop_highrisk - prop_assumed_highrisk*hirisk_prop_isolated), by=c("group", "population")]
+#unmitigated[grepl("high", population, fixed=T), prop_hrisk := 1 - max(0, prop_assumed_highrisk*hirisk_prop_isolated - prop_highrisk), by=c("group", "population")]
+#' assume high risk are not more likely to be isolated
+#unmitigated[, prop_hrisk := prop_highrisk*(1-hirisk_prop_isolated), by=c("group", "population")]
+unmitigated[, prop_hrisk := prop_highrisk, by=c("group", "population")]
+#unmitigated[grepl("high", population, fixed=T), prop_hrisk := 1 - max(0, prop_assumed_highrisk*hirisk_prop_isolated - prop_highrisk), by=c("group", "population")]
 
-unmitigated_severity <- processSeverity(unmitigated, T)
+unmitigated_severity <- processSeverity(unmitigated, T, RR_hrisk_hospitalised,RR_hrisk_crtical_case)
 
 cases_files <- list.files(sprintf("%s/%s", output_dir, tolower(country)))
 cases_files <- cases_files[cases_files != "unmit_timings.qs"]
@@ -165,17 +172,17 @@ plotdata_b[, "scenario_name"] <- "Reduction symptomatic contacts 60%"
 plotdata_c <- cases_bytime[[2]][
   gen_socdist_stop==9 & gen_socdist_other==0.6
 ]
-plotdata_c[, "scenario_name"] <- "Social distancing -40% - 9 months"
+plotdata_c[, "scenario_name"] <- "Social distancing -40%"
 plotdata_d <- cases_bytime[[3]][
   hirisk_shield_stop==9 & hirisk_contact==1 & hirisk_prop_isolated==0.8 &
     hirisk_lorisk_contact == 0.4
 ]
-plotdata_d[, "scenario_name"] <- "Shielding 80% - 9 months - reduce contact 60%"
+plotdata_d[, "scenario_name"] <- "Shielding 80% - reduce contact 60%"
 plotdata_e <- cases_bytime[[4]][
   hirisk_shield_stop==9 & hirisk_contact==1 & hirisk_prop_isolated==0.8 &
     hirisk_lorisk_contact == 0.4 & gen_socdist_stop==9 & gen_socdist_other==0.6
 ]
-plotdata_e[, "scenario_name"] <- "Shielding 80% - 9 months - reduce contact 60%\nSocial distancing -40%"
+plotdata_e[, "scenario_name"] <- "Shielding 80% - reduce contact 60%\nSocial distancing -40%"
 
 plotdata <- rbindlist(
   list(
@@ -241,10 +248,12 @@ cases_data_severity <- lapply(
     )
     
     #how many of cases are high-risk?
-    x[, prop_hrisk := max(0, prop_highrisk - prop_assumed_highrisk*hirisk_prop_isolated), by=c("group", "population","scen","s","run")]
-    x[grepl("high", population, fixed=T), prop_hrisk := 1 - max(0, prop_assumed_highrisk*hirisk_prop_isolated - prop_highrisk), by=c("group", "population","scen","s","run")]
+    #assume irrespective of proportion isolated
+    #x[, prop_hrisk := max(0, prop_highrisk - prop_assumed_highrisk*hirisk_prop_isolated), by=c("group", "population","scen","s","run")]
+    #x[grepl("high", population, fixed=T), prop_hrisk := 1 - max(0, prop_assumed_highrisk*hirisk_prop_isolated - prop_highrisk), by=c("group", "population","scen","s","run")]
+    x[, prop_hrisk := prop_highrisk, by=c("group", "population","scen","s","run")]
     
-    return(processSeverity(x, T))
+    return(processSeverity(x, T, RR_hrisk_hospitalised, RR_hrisk_crtical_case))
   }
 )
 
@@ -313,7 +322,7 @@ ggplot(
 
 
 ggplot(
-  cases_data_severity_compare[[2]][outcome == "cases_hospitalised", .(
+  cases_data_severity_compare[[2]][outcome == "cases_hospitalised" & gen_socdist_stop==9, .(
     low95=round((1-quantile(diff, 0.025))*100,1),
     low50=round((1-quantile(diff, 0.25))*100,1),
     median=round((1-median(diff))*100,1),
@@ -364,7 +373,8 @@ ggplot(
     high50=round((1-quantile(diff, 0.725))*100,1),
     high95=round((1-quantile(diff, 0.975))*100,1)
   ), by=c("hirisk_prop_isolated", "hirisk_lorisk_contact", "hirisk_contact")],
-  aes(x = 100*hirisk_prop_isolated, xend=100*hirisk_prop_isolated)
+  #aes(x = 100*hirisk_prop_isolated, xend=100*hirisk_prop_isolated)
+  aes(x = 100*(1-hirisk_lorisk_contact), xend=100*(1-hirisk_lorisk_contact))
 )+geom_segment(
   aes(
     y=low95,
@@ -381,7 +391,9 @@ ggplot(
   aes(y=median),
   colour="#FF0000"
 )+facet_nested(
-  hirisk_lorisk_contact~hirisk_contact,
+  #hirisk_lorisk_contact~hirisk_contact,
+  #hirisk_prop_isolated~hirisk_contact,
+  hirisk_contact~hirisk_prop_isolated,
   labeller = ggplot2::labeller(
     hirisk_lorisk_contact =  function(string, before = "Red. contacts between\nhigh- low-risk: ", after="%"){
       paste0(
@@ -391,11 +403,19 @@ ggplot(
         after
       )
     },
-    hirisk_contact =  function(string, before = "Difference in contacts within\nhigh-risk group: ", after=""){
+    hirisk_contact =  function(string, before = "Contacts within shielded\nrelative to baseline: ", after="%"){
       paste0(
         before,
         #(1-as.numeric(string))*100,
-        as.numeric(string),
+        as.numeric(string)*100,
+        after
+      )
+    },
+    hirisk_prop_isolated =  function(string, before = "Eligible high-risk who\nare shielded: ", after="%"){
+      paste0(
+        before,
+        #(1-as.numeric(string))*100,
+        as.numeric(string)*100,
         after
       )
     }
@@ -404,19 +424,22 @@ ggplot(
   #limits=c(0,NA) 
 )+theme_bw(
 )+labs(
-  x="Eligibile high-risk who are isolated (%)",
+  #x="Eligibile high-risk who are isolated (%)",
+  x="Reduction in contact between shielded and non-shielded (%)",
   y="Reduction in cases who require hospitalisation (%)"
+)+geom_hline(
+  yintercept=0
 )
 
 ggplot(
-  cases_data_severity_compare[[4]][outcome == "cases_hospitalised", .(
-    low95=round((1-quantile(diff, 0.025)),1),
-    low50=round((1-quantile(diff, 0.25)),1),
-    median=round((1-median(diff)),1),
-    high50=round((1-quantile(diff, 0.725)),1),
-    high95=round((1-quantile(diff, 0.975)),1)
+  cases_data_severity_compare[[4]][outcome == "cases_critical", .(
+    low95=round((1-quantile(diff, 0.025)),1)*100,
+    low50=round((1-quantile(diff, 0.25)),1)*100,
+    median=round((1-median(diff)),1)*100,
+    high50=round((1-quantile(diff, 0.725)),1)*100,
+    high95=round((1-quantile(diff, 0.975)),1)*100
   ), by=c("hirisk_prop_isolated", "hirisk_lorisk_contact", "hirisk_contact", "gen_socdist_other")],
-  aes(x = hirisk_prop_isolated, xend=hirisk_prop_isolated)
+  aes(x = 100*(1-hirisk_lorisk_contact), xend=100*(1-hirisk_lorisk_contact))
 )+geom_segment(
   aes(
     y=low95,
@@ -433,9 +456,49 @@ ggplot(
   aes(y=median),
   colour="#FF0000"
 )+facet_nested(
-  hirisk_lorisk_contact~hirisk_contact+gen_socdist_other
+  hirisk_contact~gen_socdist_other+hirisk_prop_isolated,
+  labeller = ggplot2::labeller(
+    hirisk_lorisk_contact =  function(string, before = "Red. contacts between\nhigh- low-risk: ", after="%"){
+      paste0(
+        before,
+        (1-as.numeric(string))*100,
+        #as.numeric(string),
+        after
+      )
+    },
+    hirisk_contact =  function(string, before = "Contacts within shielded\nrelative to baseline: ", after="%"){
+      paste0(
+        before,
+        #(1-as.numeric(string))*100,
+        as.numeric(string)*100,
+        after
+      )
+    },
+    hirisk_prop_isolated =  function(string, before = "Eligible high-risk who\nare shielded: ", after="%"){
+      paste0(
+        before,
+        #(1-as.numeric(string))*100,
+        as.numeric(string)*100,
+        after
+      )
+    },
+    gen_socdist_other =  function(string, before = "Red. contacts\noutside home: ", after="%"){
+      paste0(
+        before,
+        (1-as.numeric(string))*100,
+        #as.numeric(string)*100,
+        after
+      )
+    }
+  )
 )+scale_y_continuous(
   #limits=c(0,NA) 
-)+theme_bw()
+)+theme_bw(
+)+geom_hline(
+  yintercept=0
+)+labs(
+  x="Reduction in contact between shielded and non-shielded (%)",
+  y="Reduction in hospitalised cases (%)"
+)
 
 
