@@ -1,17 +1,52 @@
 require(rmarkdown)
 require(data.table)
-require(data2019nCoV)
+#require(qs)
+#require(data2019nCoV)
 
 .args <- if (interactive()) c(
-  "Algeria-res.rds", "report-template.Rmd", "Algeria.pdf"
+  "~/Dropbox/covidm_reports/CaboVerde-res.rds",
+  "report-template.Rmd",
+  "~/Dropbox/covidm_reports/interventions/inputs",
+  "~/Dropbox/covidm_reports/interventions/generation_data/lmic_early_deaths.csv",
+  "testpdf.pdf"
 ) else commandArgs(trailingOnly = TRUE)
 
-# need to get contact matrix
-# need to get age pyramid
-
 simdata <- readRDS(.args[1])
+inputdir <- path.expand(.args[3])
+ctar <- tolower(gsub("-res\\.rds","",basename(.args[1])))
+detailinputdir <- sprintf("%s/%s", inputdir, ctar)
+refpath <- .args[4]
 template <- .args[2]
 target <- tail(.args, 1)
+
+
+for (.fn in list.files(inputdir, "\\.rds", full.names = TRUE, include.dirs = F)) {
+  .nm <- gsub(sprintf("^%s/(.+)\\.rds$",inputdir),"\\1",.fn)
+  assign(.nm, readRDS(.fn))
+}
+
+if (dir.exists(detailinputdir)) {
+  for (.fn in list.files(detailinputdir, "\\.rds", full.names = TRUE)) {
+    .nm <- gsub(sprintf("^%s/(.+)\\.rds$", detailinputdir),"\\1",.fn)
+    ## overrides previous assignment, if any
+    assign(.nm, readRDS(.fn))
+  }
+}
+
+ref <- fread(refpath, skip = 2, col.names = c("country", "d1", "d2", "d3"), drop = 5)
+ref[d1=="", d1 := NA]
+ref[d2=="", d2 := NA]
+ref[d3=="", d3 := NA]
+ref[, d1 := as.Date(sprintf("%s-2020",d1), format = "%d-%b-%Y") ]
+ref[, d2 := as.Date(sprintf("%s-2020",d2), format = "%d-%b-%Y") ]
+ref[, d3 := as.Date(sprintf("%s-2020",d3), format = "%d-%b-%Y") ]
+ref[, cty := tolower(gsub("[^a-zA-Z]","",country))]
+
+ref[cty == "caboverde", d1 := NA ] # assert this death was imported
+
+day0 <- NA # ref[cty == ctar, d1]
+
+if (!length(day0)) day0 <- NA
 
 dynamics <- simdata$dynamics
 contactmatrices <- simdata$base_parameters$pop[[1]]$matrices
@@ -25,21 +60,14 @@ poppyra <- data.table(
 )
 loc <- simdata$base_parameters$pop[[1]]$name
 
-# TODO look this up some how?
-refday <- "Unknown"
-
-if (any(grepl(gsub(" ",".",loc), names(WHO_SR)))) {
-  
-}
-
 rmarkdown::render(
-  .args[2],
+  template,
   output_file = tail(.args, 1),
   params = list(
     location = loc,
     dynamics = dynamics,
     contactmatrices = contactmatrices,
     poppyra = poppyra,
-    refday = refday
+    day0 = day0
   )
 )

@@ -5,6 +5,7 @@ COVIDMPATH ?= ../covidm
 REPDIR ?= ~/Dropbox/Covid_lmic/reports
 DATADIR ?= ~/Dropbox/covidm_reports
 INTINPUTDIR := ${DATADIR}/interventions/inputs
+HPCDIR ?= ~/Dropbox/covidm_hpc_output
 
 ${REPDIR} ${DATADIR}:
 	mkdir -p $@
@@ -61,54 +62,58 @@ testps: ${INTINPUTDIR}/caboverde/params_set.rds | LMICparams_set.txt
 
 ROOTS := $(shell cat LMICroots.txt)
 
-${DATADIR}/interventions/%.qs: run_scenarios.R helper_functions.R
+${HPCDIR}/%/001.sev: translate.R ${HPCDIR}/%/001.qs
+	time Rscript $< ${HPCDIR} ${COVIDMPATH} $@
+
+${HPCDIR}/%.qs: run_scenarios.R helper_functions.R
+	exit 1
 	mkdir -p $(@D)
 	time Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
-testint: ${DATADIR}/interventions/caboverde/002.qs
+testint: ${HPCDIR}/caboverde/001.sev
 
-# INTSCENARIOS := $(foreach C,${INTCOUNTRIES},$(patsubst %,%_${C},$(shell seq 2 189)))
-# INTSCENARIOS := $(foreach CTY,${ROOTS},$(patsubst %,${DATADIR}/interventions/${CTY}/%.rds,$(shell seq -f%03g 2 189)))
-# allints: $(foreach CTY,${ROOTS},$(patsubst %,${DATADIR}/interventions/${CTY}/%.rds,$(shell seq 2 189)))
+allsev: $(foreach CTY,${ROOTS},$(patsubst %,${HPCDIR}/interventions/${CTY}/%.sev,$(shell seq -f%03g 1 189)))
 
-LMICargs.txt: LMIC.txt
-	sed "s/[^a-zA-Z]//g" $^ > $@
-	sed -i '' "s/$$/-res\.rds/" $@
+#LMICargs.txt: LMIC.txt
+#	sed "s/[^a-zA-Z]//g" $^ > $@
+#	sed -i '' "s/$$/-res\.rds/" $@
 
 
 
 
-TARS := $(addprefix ${DATADIR}/,$(shell cat LMICargs.txt))
+#TARS := $(addprefix ${DATADIR}/,$(shell cat LMICargs.txt))
 
-alltars: ${TARS}
+#alltars: ${TARS}
 
-testrep: ${REPDIR}/CaboVerde.pdf
+#allreps: $(patsubst %-res.rds,%.pdf,$(subst ${DATADIR},${REPDIR},${TARS}))
 
-allreps: $(patsubst %-res.rds,%.pdf,$(subst ${DATADIR},${REPDIR},${TARS}))
+#${DATADIR}/%-res.rds: X2-LMIC.R LMICargs.txt LMIC.txt | ${DATADIR}
+#	Rscript $< .. 100 $(filter-out $<,$^) $@
 
-${DATADIR}/%-res.rds: X2-LMIC.R LMICargs.txt LMIC.txt | ${DATADIR}
-	Rscript $< .. 100 $(filter-out $<,$^) $@
+{REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd COVID.bib | ${REPDIR}
+	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
 
-${REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd | ${REPDIR}
-	${R}
+testreport.pdf: report.R ${DATADIR}/CaboVerde-res.rds report-template.Rmd COVID.bib
+	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
+	
 
-INTCOUNTRIES := Kenya Uganda Zimbabwe
+#INTCOUNTRIES := Kenya Uganda Zimbabwe
 #INTSCENARIOS := $(foreach C,${INTCOUNTRIES},$(patsubst %,%_${C},$(shell seq 2 189)))
-UNMITSCENARIOS := $(patsubst %,1_%,${INTCOUNTRIES})
+#UNMITSCENARIOS := $(patsubst %,1_%,${INTCOUNTRIES})
 #TSTSCENARIOS := $(patsubst %,5_%,${INTCOUNTRIES})
 
-precursors: $(patsubst %,${DATADIR}/interventions/cases_sceni_%.rds,${UNMITSCENARIOS})
+#precursors: $(patsubst %,${DATADIR}/interventions/cases_sceni_%.rds,${UNMITSCENARIOS})
 
-${DATADIR}/interventions/cases_sceni_%.rds: covidm_interventions_run_scenario.R helper_functions.R
-	time Rscript $< ${COVIDMPATH} $(filter-out $<,$^) $(subst _, ,$*) ${INTINPUTDIR} $@
+#${DATADIR}/interventions/cases_sceni_%.rds: covidm_interventions_run_scenario.R helper_functions.R
+#	time Rscript $< ${COVIDMPATH} $(filter-out $<,$^) $(subst _, ,$*) ${INTINPUTDIR} $@
 
 # consolidate.R actually consolidates everything
-consolidate: ${DATADIR}/interventions/Uganda_consolidated.rds
+#consolidate: ${DATADIR}/interventions/Uganda_consolidated.rds
 
 # TODO: also rm the now-consolidated files?
-${DATADIR}/interventions/%_consolidated.rds: consolidate.R
-	time Rscript $^ $(@D)
+#${DATADIR}/interventions/%_consolidated.rds: consolidate.R
+#	time Rscript $^ $(@D)
 
 
-cleanrds:
-	rm -f *-res.rds
+#cleanrds:
+#	rm -f *-res.rds
