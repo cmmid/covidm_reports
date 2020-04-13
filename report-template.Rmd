@@ -17,6 +17,7 @@ bibliography: COVID.bib
 suppressPackageStartupMessages({
   require(data.table)
   require(ggplot2)
+  require(ggthemr)
   require(cowplot)
   require(knitr)
   require(tidyverse)
@@ -807,7 +808,7 @@ tsplotter(subdyn)
 tsCplotter(subdyn[compartment == "death_o"], title="Cumulative Deaths", timing.title = "Last Timing", legend.position="right")
 ```
 
-```{r}
+```{r, echo=FALSE}
 suppressMessages(output <- subdyn %>% 
                    filter(compartment %in% compartments) %>% 
                    group_by(compartment, age, run) %>% 
