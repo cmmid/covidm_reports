@@ -815,7 +815,7 @@ suppressWarnings(output <- subdyn %>%
                    summarise(total = sum(value)) %>% 
                    group_by(compartment, age) %>% 
                    summarise(mean_value = round(mean(total))) %>% 
-                   full_join(data.frame(compartment_names) %>% rownames_to_column("compartment")) %>% 
+                   full_join(data.frame(compartment_names) %>% rownames_to_column("compartment"), by="compartment") %>% 
                    ungroup() %>% 
                    select(-compartment) %>% 
                    pivot_wider(id_cols=age, names_from=compartment_names, values_from=mean_value) %>% 
