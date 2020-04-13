@@ -809,7 +809,7 @@ tsCplotter(subdyn[compartment == "death_o"], title="Cumulative Deaths", timing.t
 ```
 
 ```{r, echo=FALSE}
-suppressMessages(output <- subdyn %>% 
+suppressWarnings(output <- subdyn %>% 
                    filter(compartment %in% compartments) %>% 
                    group_by(compartment, age, run) %>% 
                    summarise(total = sum(value)) %>% 
