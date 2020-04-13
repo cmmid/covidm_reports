@@ -822,7 +822,7 @@ suppressWarnings(output <- subdyn %>%
                    rename(Age=age) %>% 
                    select(Age, `Symptomatic Cases`, `Hospitilised Cases (Ward)`, `Hospitilised Cases (ICU)`, Deaths)) 
                    
-kable(output, caption = "Summary of mean numbers for each compartment and age group")
+kable(output, caption = "Summary of mean numbers for each compartment and age group.")
 ```
 
 
