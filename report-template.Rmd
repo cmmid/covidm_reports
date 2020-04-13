@@ -18,9 +18,10 @@ suppressPackageStartupMessages({
   require(data.table)
   require(ggplot2)
   require(cowplot)
-  # require(ggpubr)
+  require(knitr)
   require(tidyverse)
-  require(ggthemr)
+  require(RColorBrewer)
+  
 })
 
 reduce_ages <- function(dt) {
@@ -172,7 +173,22 @@ calculate_peak_sizes <- function(peaks.dt, by = c("population", "compartment")) 
   # ])
 }
 
-summary_tsplotter <- function(subdt, title, peak.title = "Peak Number", timing.title = "Peak Timing", pop = poppyra) {
+calculate_cumulative_median_values <- function(refdt, by=c("compartment")){
+  return(refdt %>%
+    group_by_at(vars(one_of(c(by, "run")))) %>%
+    # group_by(run) %>% 
+    arrange(date) %>%
+    mutate(cum_value = cumsum(value)) %>%
+    group_by_at(vars(one_of(c(by, "date")))) %>% 
+    # group_by(date) %>%
+    summarise(median_cum_value = median(cum_value)) %>%
+    mutate(median_value = c(median_cum_value[1], diff(median_cum_value))) %>%
+    ungroup() %>%
+    mutate(compartment = factor(compartment, levels = compartments)))
+}
+
+summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "Peak Timing", 
+                              pop = poppyra, x.main.title = "Number of Cases", use.legend=TRUE) {
   # First calculate all the data
   refdt <- calculate_reference_table(subdt %>% filter(compartment %in% compartments))
 
@@ -200,15 +216,7 @@ summary_tsplotter <- function(subdt, title, peak.title = "Peak Number", timing.t
   }
 
   # Calculate the median values
-  cumulative_median_values <- refdt %>%
-    group_by(compartment, run) %>%
-    arrange(date) %>%
-    mutate(cum_value = cumsum(value)) %>%
-    group_by(compartment, date) %>%
-    summarise(median_cum_value = median(cum_value)) %>%
-    mutate(median_value = c(median_cum_value[1], diff(median_cum_value))) %>%
-    ungroup() %>%
-    mutate(compartment = factor(compartment, levels = compartments))
+  cumulative_median_values <- calculate_cumulative_median_values(refdt)
 
 
   # Generate the plots
@@ -222,6 +230,7 @@ summary_tsplotter <- function(subdt, title, peak.title = "Peak Number", timing.t
       max_value = max(value)
     ) %>%
     ggplot(aes(group = compartment, fill = compartment)) +
+    labs(subtitle=title)+
     geom_ribbon(aes(
       x = date,
       ymin = min_value,
@@ -231,7 +240,7 @@ summary_tsplotter <- function(subdt, title, peak.title = "Peak Number", timing.t
     ) +
     geom_hline(
       data = peaks.dt %>% group_by(compartment) %>% summarise(mean_peak = mean(peak)),
-      aes(yintercept = mean_peak, colour=compartment), linetype = "dotted"
+      aes(yintercept = mean_peak, colour=compartment), linetype = "dashed"
     ) +
     geom_line(data = cumulative_median_values, aes(x = date, y = median_value, colour = compartment)) +
     facet_grid(compartment ~ ., scales = "free_y", labeller = as_labeller(compartment_names)) +
@@ -239,7 +248,7 @@ summary_tsplotter <- function(subdt, title, peak.title = "Peak Number", timing.t
                           breaks=compartments, labels = compartment_names) +
     scale_fill_manual("", values=brewer.pal(n=4, name="Set2"),
                           breaks=compartments, labels = compartment_names) +
-    scale_y_continuous("Number of cases", labels = scales::label_number_auto()) +
+    scale_y_continuous(x.main.title, labels = scales::label_number_auto()) +
     coord_cartesian(xlim = timing_limits, expand = FALSE, clip = "off") +
     timing_scale_null +
     thm_main
@@ -247,6 +256,7 @@ summary_tsplotter <- function(subdt, title, peak.title = "Peak Number", timing.t
   legend <- get_legend(p)
   ptiming <- peaks.dt %>% 
     ggplot() +
+    labs(subtitle=timing.title)+
     geom_violin(aes(x=peakdate, y=factor(compartment, levels=rev(compartments)),
                     colour=compartment, fill=compartment, group=compartment), 
                 alpha=0.4, position = position_identity())+ 
@@ -262,21 +272,28 @@ summary_tsplotter <- function(subdt, title, peak.title = "Peak Number", timing.t
     p + no_legend(),
     ptiming + no_legend(),
     nrow = 2, ncol = 1,
-    labels = c("A) Case numbers", "B) Peak timings"),
+    # labels = c(title, timing.title),
     hjust = 0,
     label_size = 8,
     rel_heights = c(3, 1),
     align = "hv",
     axis = "l"
   )
-
+  if(use.legend){
   return(
     plot_grid(p2, legend, nrow = 1, ncol = 2, rel_widths = c(4, 1))
   )
+  }else{
+    return(p2)
+  }
 }
 
-tsplotter <- function(subdt, title, peak.title = "Peak Number", timing.title = "Peak Timing", pop = poppyra) {
-  refdt <- calculate_reference_table(subdt, by = c("run", "date", "population", "compartment", "age"))
+tsplotter <- function(subdt, 
+                      title = NULL, 
+                      timing.title = "Peak Timing", 
+                      pop = poppyra, legend.position="bottom") {
+  refdt <- calculate_reference_table(subdt %>% filter(compartment %in% compartments),
+                                     by = c("run", "date", "population", "compartment", "age"))
 
   peaks.dt <- calculate_peaks(refdt, by = c("run", "age", "population", "compartment"))
   timing.dt <- calculate_timings(peaks.dt, by = c("age", "population", "compartment"))
@@ -289,95 +306,141 @@ tsplotter <- function(subdt, title, peak.title = "Peak Number", timing.title = "
       })
     refdt <- refdt %>%
       mutate(date = start_date + date)
+     peaks.dt <- peaks.dt %>%
+      mutate(peakdate = start_date + peakdate)
     timing_limits <- c(start_date, start_date + ulim)
     timing_scale <- scale_x_date("Date", date_breaks = "1 month", date_labels = "%b", expand = c(0, 0))
-    timing_scale_null <- scale_x_date("Date", date_breaks = "1 month", labels = NULL, expand = c(0, 0))
+    timing_scale_null <- scale_x_date("", date_breaks = "1 month", labels = NULL, expand = c(0, 0))
   } else {
     timing_limits <- c(refday, refday + ulim)
     timing_scale <- dtscale
     timing_scale_null <- dtscale
   }
 
-  ggthemr(palette = "flat")
-  p <- refdt %>%
-    group_by(date, age) %>%
-    summarise(
-      mean_value = mean(value),
-      std_value = sd(value),
-      min_value = min(value),
-      max_value = max(value)
-    ) %>%
-    ggplot(aes(x = date, y = mean_value, group = age)) +
-    geom_ribbon(aes(
-      x = date,
-      ymin = min_value, # mean_value - std_value,
-      ymax = max_value, fill = age
-    ), # mean_value + std_value),
-    alpha = 0.2
-    ) +
-    # geom_line(aes( colour=age))+
-    coord_cartesian(expand = FALSE, clip = "off") +
-    scale_y_continuous(title, labels = scales::label_number_auto()) +
-    scale_colour_discrete("Age") +
-    scale_fill_discrete("Age") +
-    timing_scale_null +
-    thm_main +
-    theme(
-      legend.position = c(0, 1),
-      legend.justification = c(0, 1)
-    )
-  ggthemr_reset()
-
-  ptiming <- ggplot(timing.dt) +
-    aes(y = age, yend = age, color = age) +
-    geom_segment(aes(x = lo.lo, xend = hi.hi), size = 1) +
-    geom_segment(aes(x = lo, xend = hi), size = 2) +
-    geom_point(aes(x = md), size = 3) +
-    labs(subtitle = timing.title) +
-    coord_cartesian(xlim = timing_limits, expand = TRUE, clip = "off") +
-    timing_scale +
-    scale_color_pop(guide = "none") +
-    thm_bottom
-
-  ppeak <- ggplot(size.dt) +
-    aes(x = age, xend = age, color = age) +
-    geom_segment(aes(y = lo.lo, yend = hi.hi), size = 1) +
-    geom_segment(aes(y = lo, yend = hi), size = 2) +
-    geom_blank(aes(y = mx)) +
-    geom_point(aes(y = md), size = 3) +
-    coord_cartesian(ylim = c(0, NA), expand = FALSE, clip = "off") +
-    scale_y_continuous(peak.title, sec.axis = dup_axis(), labels = scales::number_format()) +
-    scale_color_pop(guide = "none") +
-    thm_right
-
-  return(
-    plot_grid(
-      p, ppeak, ptiming, NULL,
-      nrow = 2, ncol = 2,
-      rel_widths = c(3, 1), rel_heights = c(3, 1),
-      align = "hv"
-    )
-  )
+  cumulative_median_values <- calculate_cumulative_median_values(refdt, by=c("compartment", "age"))
+  plot_list <- list()
+  i <- 1
+  for(c in names(compartment_names))
+  {
+    if(!(c %in% refdt$compartment)){
+      next()
+    }
+    y_axis_name <- compartment_names[[c]]
+    if(is.null(title)){
+      title_1 <- y_axis_name
+    }else{
+      title_1 <- title[i]
+    }
+      # Generate the plots
+    p <- refdt %>% 
+      filter(compartment == c) %>% 
+      mutate(compartment = factor(compartment, levels = compartments)) %>%
+      group_by(compartment, date, age) %>%
+      summarise(
+        mean_value = mean(value),
+        std_value = sd(value),
+        min_value = min(value),
+        max_value = max(value)
+      ) %>%
+      ggplot(aes(group = age, fill = age)) +
+      labs(title=title_1)+
+      geom_ribbon(aes(
+        x = date,
+        ymin = min_value,
+        ymax = max_value, 
+        colour = age
+      ),
+      alpha = 0.3, colour = NA
+      ) +
+      geom_hline(
+        data = peaks.dt %>% 
+          filter(compartment==c) %>% 
+          group_by(compartment, age) %>% summarise(mean_peak = mean(peak)),
+        aes(yintercept = mean_peak, colour=age), linetype = "dashed"
+      ) +
+      geom_line(data = cumulative_median_values %>% 
+                  filter(compartment == c),
+                aes(x = date, y = median_value, colour = age)) +
+      # facet_grid(compartment ~ ., scales = "free_y", labeller = as_labeller(compartment_names)) +
+      scale_colour_brewer("Age", palette="Dark2") +
+      scale_fill_brewer("Age", palette="Dark2") +
+      # scale_fill_manual("", values=brewer.pal(n=4, name="Dark2"),
+                            # breaks=compartments, labels = compartment_names) +
+      scale_y_continuous(y_axis_name, labels = scales::label_number_auto()) +
+      coord_cartesian(xlim = timing_limits, expand = FALSE, clip = "off") +
+      timing_scale_null +
+      thm_main
+    legend <- get_legend(p + theme(legend.position = legend.position))
+    
+    ptiming <- peaks.dt %>% 
+      filter(compartment == c) %>% 
+      ggplot() +
+      labs(subtitle=timing.title)+
+      geom_violin(aes(x=peakdate, y=age,
+                      colour=age, fill=age, group=age), 
+                  alpha=0.4, position = position_identity())+ 
+      scale_colour_brewer("Age", palette="Dark2") +
+      scale_fill_brewer("Age", palette="Dark2") +
+      timing_scale +
+      coord_cartesian(xlim = timing_limits, expand = FALSE, clip = "off")+
+      theme_minimal()+
+      thm_bottom
+    
+    p_temp <- plot_grid(
+        p + no_legend(), 
+        ptiming  + no_legend(), 
+        NULL,
+        nrow = 2, ncol = 1,
+        # rel_widths = c(3, 1), 
+        rel_heights = c(3, 2),
+        align = "hv"
+      )
+    plot_list[[i]] <- p_temp
+    i <- i+ 1
+  }
+  if(length(plot_list) == 4){
+    p_combined <- plot_grid(plot_list[[1]],
+            plot_list[[2]],
+            plot_list[[3]],
+            plot_list[[4]],
+            nrow=2, ncol=2, align="hv")
+  }else{
+    p_combined <- plot_list[[1]]
+  }
+  if(legend.position == "bottom"){
+    p_out <- plot_grid(p_combined, 
+                     legend, 
+                     nrow = 2, ncol = 1, 
+                     rel_heights = c(5, 1))
+  }else{
+    p_out <- plot_grid(p_combined, 
+                     legend, 
+                     nrow = 1, ncol = 2, 
+                     rel_widths = c(4, 1))
+  
+  }
+  
+  return(p_out)
 }
 
-tsCplotter <- function(subdt, title, peak.title, timing.title) {
+tsCplotter <- function(subdt, title, timing.title, legend.position) {
   tsplotter(subdt[between(date, refday, refday + ulim)][,
     .(value = sum(value)),
     keyby = .(run, date, population, compartment, age)
   ][,
     .(value = cumsum(value), date),
     keyby = .(run, population, compartment, age)
-  ], title, peak.title, timing.title)
+  ], title=title, timing.title=timing.title, legend.position=legend.position)
 }
 
-summary_tsCplotter <- function(subdt, title, peak.title, timing.title) {
+summary_tsCplotter <- function(subdt, title, timing.title, y.axis.title, use.legend) {
   summary_tsplotter(subdt[between(date, refday, refday + ulim)][,
     .(value = sum(value)),
     keyby = .(run, date, population, compartment, age)
   ][,
     .(value = cumsum(value), date),
     keyby = .(run, population, compartment, age)
-  ], title, peak.title, timing.title)
+  ], title, timing.title, y.axis.title, use.legend = use.legend)
 }
 ```
 
@@ -586,7 +649,9 @@ summary_tsplotter(subdyn)
 ```
 
 ```{r echo=FALSE, fig.height=3}
-summary_tsCplotter(subdyn[compartment == "death_o"], "Cumulative Deaths", "Final Number", "Last Timing")
+summary_tsCplotter(subdyn[compartment == "death_o"], "A) Cumulative Deaths", 
+                   timing.title = "B) Last Timing", y.axis.title = "Deaths", 
+                   use.legend=FALSE)
 ```
 ```{r echo=FALSE}
 
@@ -733,27 +798,32 @@ Each plot includes several stochastic timelines, and shows marginal distribution
 
 Figure 6 simply shows that the percentage of symptomatic cases in each age group is mostly in proportion to the age structure of the country, with `r under_15_symtomatic_percentage` being under the age of 15 and `r over_60_symtomatic_percentage` being aged 60 or over. However, the age distribution of hospitalised cases is inverted (Figures 7 and 8), with the predicted median number of hospitalisations of those aged 60 and over much higher than among those aged 45-59 (`r median_ward_45_59` versus `r median_ward_over_60` in ward and `r median_icu_over_60` versus `r median_icu_45_59` in ICU). This pattern in the upper age groups is maintained for the predicted median peak in the daily number of deaths (`r peaks_median_over_60` among those aged 60 and over versus `r peaks_median_45_59` among those aged 45-59) and cumulative number of deaths (`r cumulative_median_death_over_60` among those aged 60 and over versus `r cumulative_median_45_59` among those aged 45-59). Generally, the number of hospitalisations and deaths increase with each increasing age band, although there seems little, if any, difference between those aged 15-29 and those aged 30-44 in this respect. Across Figures 6-10, we see that peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups, with this difference being most notable for cumulative deaths.
 
-```{r echo=FALSE, fig.height=3}
-tsplotter(subdyn[compartment == "cases_reported"], "Symptomatic Cases")
-```
-
-```{r echo=FALSE, fig.height=3}
-tsplotter(subdyn[compartment == "nonicu_p"], "Hospitalised Cases (Ward)")
+```{r echo=FALSE, fig.height=9}
+tsplotter(subdyn)
 ```
 
 
-```{r echo=FALSE, fig.height=3}
-tsplotter(subdyn[compartment == "icu_p"], "Hospitalised Cases (ICU)")
+```{r echo=FALSE, fig.height=4}
+tsCplotter(subdyn[compartment == "death_o"], title="Cumulative Deaths", timing.title = "Last Timing", legend.position="right")
 ```
 
-```{r echo=FALSE, fig.height=3}
-tsplotter(subdyn[compartment == "death_o"], "Deaths")
+```{r}
+suppressMessages(output <- subdyn %>% 
+                   filter(compartment %in% compartments) %>% 
+                   group_by(compartment, age, run) %>% 
+                   summarise(total = sum(value)) %>% 
+                   group_by(compartment, age) %>% 
+                   summarise(mean_value = round(mean(total))) %>% 
+                   full_join(data.frame(compartment_names) %>% rownames_to_column("compartment")) %>% 
+                   ungroup() %>% 
+                   select(-compartment) %>% 
+                   pivot_wider(id_cols=age, names_from=compartment_names, values_from=mean_value) %>% 
+                   rename(Age=age) %>% 
+                   select(Age, `Symptomatic Cases`, `Hospitilised Cases (Ward)`, `Hospitilised Cases (ICU)`, Deaths)) 
+                   
+kable(output)
 ```
 
-
-```{r echo=FALSE, fig.height=3}
-tsCplotter(subdyn[compartment == "death_o"], "Cumulative Deaths", "Final Number", "Last Timing")
-```
 
 \clearpage
 
