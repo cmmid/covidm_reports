@@ -4,10 +4,11 @@ require(data.table)
 #require(data2019nCoV)
 
 .args <- if (interactive()) c(
-  "~/Dropbox/covidm_reports/CaboVerde-res.rds",
+  "caboverde", # root path to sim outputs
   "report-template.Rmd",
   "~/Dropbox/covidm_reports/interventions/inputs",
   "~/Dropbox/covidm_reports/interventions/generation_data/lmic_early_deaths.csv",
+  "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
   "testpdf.pdf"
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -48,7 +49,10 @@ day0 <- NA # ref[cty == ctar, d1]
 
 if (!length(day0)) day0 <- NA
 
+is_analogy <- NA
+
 dynamics <- simdata$dynamics
+dynamics$t <- as.integer(dynamics$t)
 contactmatrices <- simdata$base_parameters$pop[[1]]$matrices
 poppyra <- data.table(
   pop = simdata$base_parameters$pop[[1]]$size,
@@ -68,6 +72,7 @@ rmarkdown::render(
     dynamics = dynamics,
     contactmatrices = contactmatrices,
     poppyra = poppyra,
-    day0 = day0
+    day0 = day0,
+    is_analogy = is_analogy
   )
 )

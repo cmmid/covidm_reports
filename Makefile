@@ -84,7 +84,7 @@ ${HPCDIR}/summary.tar.gz:
 
 ### TESTING TARGETS
 
-TESTCTY := caboverde
+TESTCTY := uganda
 
 ${TESTCTY}/peak.qs: digest.R
 	time Rscript $^ $@
@@ -106,6 +106,11 @@ test.tar.gz:
 #LMICargs.txt: LMIC.txt
 #	sed "s/[^a-zA-Z]//g" $^ > $@
 #	sed -i '' "s/$$/-res\.rds/" $@
+
+#testreport.pdf: report-alt.R report-template-alt.Rmd \
+#${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv \
+#${INTINPUTDIR}/../generation_data/data_contacts_missing.csv COVID.bib
+#	Rscript $(filter-out %.bib,$^) caboverde ${INTINPUTDIR} $@
 
 
 
@@ -135,7 +140,7 @@ allrep: ${REPS}
 TESTREP := Comoros
 
 testreport.pdf: report.R ${DATADIR}/${TESTREP}-res.rds report-template.Rmd COVID.bib
-	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
+	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv $@
 	
 
 #INTCOUNTRIES := Kenya Uganda Zimbabwe

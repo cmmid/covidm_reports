@@ -2,14 +2,16 @@
 author: "LSHTM CMMID COVID-19 Working Group"
 date: "`r format(Sys.Date(),'%d %b %Y')`"
 output:
-  pdf_document:
+  bookdown::pdf_document2:
     fig_caption: yes
+    toc: false
 params:
   location: Default
   dynamics: "`r data.frame()`"
   contactmatrices: "`r matrix()`"
   poppyra: "`r integer()`"
   day0: "2020-04-01"
+  is_analogy: "`r NA_character_`"
 title: "`r sprintf('Modelling projections for COVID-19 epidemic in for %s', params$location)`"
 bibliography: COVID.bib
 ---
@@ -64,7 +66,7 @@ poppyra[, per_by_age := per_by_age / sum(pop)]
 if (!is.na(params$day0)) {
   dtscale <- scale_x_date("Date", expand = c(0, 0))
 } else {
-  dtscale <- scale_x_continuous("Days from First Case", expand = c(0, 0))
+  dtscale <- scale_x_continuous("Days from Initial Infection Seeding (50 infections)", expand = c(0, 0))
 }
 
 col.lbls <- poppyra[, sprintf("%s (%s%%)", age, round(unique(per_by_age) * 100)), by = age]$V1
@@ -276,7 +278,7 @@ summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "Pea
     # labels = c(title, timing.title),
     hjust = 0,
     label_size = 8,
-    rel_heights = c(3, 1),
+    rel_heights = c(3, 0.5),
     align = "hv",
     axis = "l"
   )
@@ -453,11 +455,7 @@ The model is adapted to each country by applying the demography (age distributio
 
 Please note this report is updated frequently as new information is included.
 
-## Population Structure
-
-TODO: indicate if synthetic or not; indicate if analogy or not
-
-```{r echo=FALSE, fig.height=2.5}
+```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
 plotter <- function(pop) {
   p <- ggplot(pop) +
     aes(x = age, y = pop / 1000) +
@@ -467,7 +465,7 @@ plotter <- function(pop) {
     theme_minimal()
   return(p)
 }
-sp_contact_matrices <- function(mat, legpos = "right") {
+sp_contact_matrices <- function(mat, legpos = "right", is_analogy = params$is_analogy) {
   mat <- Reduce(function(l, r) l + r, mat)
   data <- data.table(reshape2::melt(mat))
   names(data) <- c("From", "To", "Contacts")
@@ -492,7 +490,7 @@ calculate_max_peak <- function(subdt) {
     peaks.dt <- calculate_peaks(refdt)
     timing.dt <- calculate_timings(peaks.dt)
     start_date <- as.Date(params$day0)
-    return(paste0(format(start_date + timing.dt$md[1], "%d/%m/%Y"), " to ", format(start_date + timing.dt$hi[1], "%d/%m/%Y")))
+    return(paste0(" on ",format(start_date + timing.dt$md[1], "%d/%m/%Y"), " to ", format(start_date + timing.dt$hi[1], "%d/%m/%Y")))
   } else {
     return("")
   }
@@ -552,7 +550,8 @@ calculate_cumulative_total <- function(subdt) {
     select(date) %>%
     pull(), probs = c(0.25, 0.75, 0.025, 0.975))
   return(paste0(
-    q_max_value[1], " - ", q_max_value[2], " (", q_max_value[3], " - ", q_max_value[4], ", 95% CI)", " occuring on ", q_dates[1], " - ", q_dates[2], " (", q_dates[3], " - ", q_dates[4], ", 95% CI)",
+    q_max_value[1], " - ", q_max_value[2], " (", q_max_value[3], " - ", q_max_value[4], ", 95% CI)",
+    ifelse(is.na(q_dates[1]),"",paste0(" occuring on ", q_dates[1], " - ", q_dates[2], " (", q_dates[3], " - ", q_dates[4], ", 95% CI)")),
     ", approximately ", q_days[1], " - ", q_days[2],
     " days after the first reported case (", q_days[3], " - ", q_days[4], " days, 95% CI)"
   ))
@@ -575,7 +574,7 @@ calculate_dates_difference <- function(subdt1, subdt2) {
 
   days_difference <- calculate_timings(peaks.dt, by = c("population"))
   if (days_difference$md - days_difference$lo.lo > 2) {
-    return(paste0(days_difference$lo, " - ", days_difference$hi, " days later (", days_difference$lo.lo, " - ", days_difference$hi.hi, " days, 95% CI"))
+    return(paste0(days_difference$lo, " - ", days_difference$hi, " days later (", days_difference$lo.lo, " - ", days_difference$hi.hi, " days, 95% CI)"))
   } else {
     return(paste0(days_difference$lo.lo, " - ", days_difference$hi.hi, " days later (95% CI)"))
   }
@@ -621,22 +620,20 @@ cumulative_totals <- list(
 
 # Overall Results
 
-The following series of plots show overall outcomes: 
-- incidence of cases, 
-- prevalence of hospitalised patients, 
-- incidence and cumulative number of deaths.
+The following series of plots show overall outcomes: incidence of cases, prevalence of hospitalised patients, incidence and cumulative number of deaths.
 
-The timing of the peak is very sensitive to when community transmission stars in a country, and what interventions are used to mitigate the epidemic. In the projected epidemic the median peak number of symptomatic cases across all model projections is `r peaks_median_numbers$cases_reported`, forecast to occur on `r peaks_dates_and_days_after$cases_reported` (Figure 1). The predicted peak in hospitalised cases occurs about `r dates_difference$cases_vs_icu` (Figures 2 and 3), with a median of `r peaks_median_numbers$nonicu_p` cases in ward and `r peaks_median_numbers$icu_p` in ICU on `r peaks_dates$nonicu_p`. The peak daily number of deaths is predicted to follow about `r dates_difference$icu_vs_death` on `r peaks_dates$death_o`, with the median estimate of `r peaks_median_numbers$death_o` new deaths that day (Figure 4). Figure 5 shows that the cumulative number of deaths is predicted to be `r cumulative_totals$death_o`. 
+The timing of the peak is very sensitive to when community transmission stars in a country, and what interventions are used to mitigate the epidemic. In the projected epidemic the median peak number of symptomatic cases across all model projections is `r peaks_median_numbers$cases_reported`, forecast to occur on `r peaks_dates_and_days_after$cases_reported` (Fig. \@ref(fig:tsoverall)). The predicted peak in hospitalised cases occurs about `r dates_difference$cases_vs_icu`, with a median of `r peaks_median_numbers$nonicu_p` cases in ward and `r peaks_median_numbers$icu_p` in ICU`r peaks_dates$nonicu_p`. The peak daily number of deaths is predicted to follow about `r dates_difference$icu_vs_death`, with the median estimate of `r peaks_median_numbers$death_o` new deaths that day. Cumulative number of deaths is predicted to be `r cumulative_totals$death_o`. 
 
-```{r echo=FALSE, fig.height=9}
-summary_tsplotter(subdyn)
+```{r tsoverall, echo=FALSE, fig.height=8.5, fig.cap="Overall Outcome Time Series"}
+#plot_grid(
+  summary_tsplotter(subdyn)#,
+#  summary_tsCplotter(subdyn[compartment == "death_o"], "A) Cumulative Deaths", 
+#                    timing.title = "B) Last Timing", y.axis.title = "Deaths", 
+#                    use.legend=FALSE),
+#   ncol = 1, rel_heights = c(4,1)
+# )
 ```
 
-```{r echo=FALSE, fig.height=3}
-summary_tsCplotter(subdyn[compartment == "death_o"], "A) Cumulative Deaths", 
-                   timing.title = "B) Last Timing", y.axis.title = "Deaths", 
-                   use.legend=FALSE)
-```
 ```{r echo=FALSE}
 
 calculate_age_distribution <- function(subdt) {
@@ -774,26 +771,20 @@ cumulative_median_45_59 <- cumulative_median_by_age$death_o %>%
   scales::number()
 ```
 
-\clearpage
-
 ## Results by Age Group
 
 Each plot includes several stochastic timelines, and shows the average height and timing of peaks.
 
-The percentage of symptomatic cases in each age group is mostly in proportion to the age structure of the country (Figure 6), with `r under_15_symtomatic_percentage` being under the age of 15 and `r over_60_symtomatic_percentage` being aged 60 or over. However, the age distribution of hospitalised cases is inverted (Figures 7 and 8), with the predicted median number of hospitalisations of those aged 60 and over much higher than among those aged 45-59 (`r median_ward_45_59` versus `r median_ward_over_60` in ward and `r median_icu_over_60` versus `r median_icu_45_59` in ICU). This pattern in the upper age groups is maintained for the predicted median peak in the daily number of deaths (`r peaks_median_over_60` among those aged 60 and over versus `r peaks_median_45_59` among those aged 45-59) and cumulative number of deaths (`r cumulative_median_death_over_60` among those aged 60 and over versus `r cumulative_median_45_59` among those aged 45-59). This occurs because COVID-19 has been shown to cause more severe disease and more mortality in older people.
+The percentage of symptomatic cases in each age group is mostly in proportion to the age structure of the country (Fig. \@ref(fig:byage)), with `r under_15_symtomatic_percentage` being under the age of 15 and `r over_60_symtomatic_percentage` being aged 60 or over. However, the age distribution of hospitalised cases is inverted, with the predicted median number of hospitalisations of those aged 60 and over much higher than among those aged 45-59 (`r median_ward_45_59` versus `r median_ward_over_60` in ward and `r median_icu_over_60` versus `r median_icu_45_59` in ICU). This pattern in the upper age groups is maintained for the predicted median peak in the daily number of deaths (`r peaks_median_over_60` among those aged 60 and over versus `r peaks_median_45_59` among those aged 45-59) and cumulative number of deaths (`r cumulative_median_death_over_60` among those aged 60 and over versus `r cumulative_median_45_59` among those aged 45-59). This occurs because COVID-19 has been shown to cause more severe disease and more mortality in older people.
 
-Generally, the number of hospitalisations and deaths increase with each increasing age band, although there seems little, if any, difference between those aged 15-29 and those aged 30-44 in this respect. In Figures 6-10, we see that peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups, with this difference being most notable for cumulative deaths.
+Generally, the number of hospitalisations and deaths increase with each increasing age band, although there seems little, if any, difference between those aged 15-29 and those aged 30-44 in this respect. We see that peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups.
 
-```{r echo=FALSE, fig.height=9}
+```{r byage, echo=FALSE, fig.height=9, fig.cap="Outcome Timeseries by Age"}
 tsplotter(subdyn)
 ```
 
 
-```{r echo=FALSE, fig.height=4}
-tsCplotter(subdyn[compartment == "death_o"], title="Cumulative Deaths", timing.title = "Last Timing", legend.position="right")
-```
-
-```{r, echo=FALSE}
+```{r sumtable, echo=FALSE, caption = "Summary of mean numbers for each compartment and age group."}
 suppressWarnings(output <- subdyn %>% 
                    filter(compartment %in% compartments) %>% 
                    group_by(compartment, age, run) %>% 
@@ -807,11 +798,8 @@ suppressWarnings(output <- subdyn %>%
                    rename(Age=age) %>% 
                    select(Age, `Symptomatic Cases`, `Hospitalised Cases (Ward)`, `Hospitalised Cases (ICU)`, Deaths)) 
                    
-kable(output, caption = "Summary of mean numbers for each compartment and age group.")
+kable(output)
 ```
-
-
-\clearpage
 
 # Conclusions
 
@@ -823,7 +811,7 @@ We used the stochastic age-structured dynamic transmission model reported in [@d
 
 ## Dynamic transmission model 
 
-We analysed a stochastic compartmental model stratified into 5-year age bands, with individuals classified according to current disease status (Fig. 1) and transmission between groups based on UK social mixing patterns ([@davies_age_2020;@mossong2008social]; full details in Supplementary Information). After infection with SARS-CoV-2 in the model, susceptible individuals pass through a latent period before becoming infectious, either with a preclinical and then clinical infection, or with a subclinical infection, before recovery or isolation. We refer to those infections causing few or no symptoms as subclinical. We assume older individuals are more likely to show clinical symptoms [@davies_age_2020].
+We analysed a stochastic compartmental model stratified into 5-year age bands, with individuals classified according to current disease status (Fig. \@ref(fig:modelpars))) and transmission between groups based on UK social mixing patterns ([@davies_age_2020;@mossong2008social]; full details in Supplementary Information). After infection with SARS-CoV-2 in the model, susceptible individuals pass through a latent period before becoming infectious, either with a preclinical and then clinical infection, or with a subclinical infection, before recovery or isolation. We refer to those infections causing few or no symptoms as subclinical. We assume older individuals are more likely to show clinical symptoms [@davies_age_2020].
 
 ## Key model parameters 
 
