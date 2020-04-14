@@ -190,7 +190,7 @@ calculate_cumulative_median_values <- function(refdt, by=c("compartment")){
     mutate(compartment = factor(compartment, levels = compartments)))
 }
 
-summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "Peak Timing", 
+summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "E) Peak Timing", 
                               pop = poppyra, x.main.title = "Number of Cases", use.legend=TRUE) {
   # First calculate all the data
   refdt <- calculate_reference_table(subdt %>% filter(compartment %in% compartments))
@@ -241,6 +241,15 @@ summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "Pea
     ),
     alpha = 0.3, colour = NA
     ) +
+    geom_text(data=refdt %>%
+                group_by(compartment) %>% 
+                summarise(max_y = 0.5*max(value)) %>%
+                mutate(compartment=factor(compartment, levels=compartments)) %>% 
+                arrange(compartment) %>% 
+                mutate(l=letters[1:n()] %>%toupper()),
+              aes(x=min(timing_limits) - 10, 
+                  y=max_y, 
+                  label=l), inherit.aes = FALSE)+
     geom_hline(
       data = peaks.dt %>% group_by(compartment) %>% summarise(mean_peak = mean(peak)),
       aes(yintercept = mean_peak, colour=compartment), linetype = "dashed"
@@ -270,6 +279,14 @@ summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "Pea
     timing_scale +
     coord_cartesian(xlim = timing_limits, expand = FALSE, clip = "off")+
     theme_minimal()+
+    geom_text(data=peaks.dt %>% 
+                ungroup() %>% 
+                filter(peakdate == min(peakdate)) %>%
+                head(1),
+              aes(x=min(timing_limits) - 10, 
+                  y="icu_p", 
+                  label=toupper(letters[length(unique(peaks.dt$compartment)) + 1])),
+              inherit.aes = FALSE)+
     thm_bottom
   p2 <- plot_grid(
     p + no_legend(),
@@ -330,7 +347,7 @@ tsplotter <- function(subdt,
     }
     y_axis_name <- compartment_names[[c]]
     if(is.null(title)){
-      title_1 <- y_axis_name
+      title_1 <- paste(toupper(letters[i]), "-", y_axis_name)
     }else{
       title_1 <- title[i]
     }
@@ -625,13 +642,7 @@ The following series of plots show overall outcomes: incidence of cases, prevale
 The timing of the peak is very sensitive to when community transmission stars in a country, and what interventions are used to mitigate the epidemic. In the projected epidemic the median peak number of symptomatic cases across all model projections is `r peaks_median_numbers$cases_reported`, forecast to occur on `r peaks_dates_and_days_after$cases_reported` (Fig. \@ref(fig:tsoverall)). The predicted peak in hospitalised cases occurs about `r dates_difference$cases_vs_icu`, with a median of `r peaks_median_numbers$nonicu_p` cases in ward and `r peaks_median_numbers$icu_p` in ICU`r peaks_dates$nonicu_p`. The peak daily number of deaths is predicted to follow about `r dates_difference$icu_vs_death`, with the median estimate of `r peaks_median_numbers$death_o` new deaths that day. Cumulative number of deaths is predicted to be `r cumulative_totals$death_o`. 
 
 ```{r tsoverall, echo=FALSE, fig.height=8.5, fig.cap="Overall Outcome Time Series"}
-#plot_grid(
-  summary_tsplotter(subdyn)#,
-#  summary_tsCplotter(subdyn[compartment == "death_o"], "A) Cumulative Deaths", 
-#                    timing.title = "B) Last Timing", y.axis.title = "Deaths", 
-#                    use.legend=FALSE),
-#   ncol = 1, rel_heights = c(4,1)
-# )
+summary_tsplotter(subdyn)
 ```
 
 ```{r echo=FALSE}
