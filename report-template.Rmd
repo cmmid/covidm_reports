@@ -190,7 +190,7 @@ calculate_cumulative_median_values <- function(refdt, by=c("compartment")){
     mutate(compartment = factor(compartment, levels = compartments)))
 }
 
-summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "Peak Timing", 
+summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "E) Peak Timing", 
                               pop = poppyra, x.main.title = "Number of Cases", use.legend=TRUE) {
   # First calculate all the data
   refdt <- calculate_reference_table(subdt %>% filter(compartment %in% compartments))
@@ -241,6 +241,15 @@ summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "Pea
     ),
     alpha = 0.3, colour = NA
     ) +
+    geom_text(data=refdt %>%
+                group_by(compartment) %>% 
+                summarise(max_y = 0.5*max(value)) %>%
+                mutate(compartment=factor(compartment, levels=compartments)) %>% 
+                arrange(compartment) %>% 
+                mutate(l=letters[1:n()] %>%toupper()),
+              aes(x=min(timing_limits) - 10, 
+                  y=max_y, 
+                  label=l), inherit.aes = FALSE)+
     geom_hline(
       data = peaks.dt %>% group_by(compartment) %>% summarise(mean_peak = mean(peak)),
       aes(yintercept = mean_peak, colour=compartment), linetype = "dashed"
@@ -270,6 +279,14 @@ summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "Pea
     timing_scale +
     coord_cartesian(xlim = timing_limits, expand = FALSE, clip = "off")+
     theme_minimal()+
+    geom_text(data=peaks.dt %>% 
+                ungroup() %>% 
+                filter(peakdate == min(peakdate)) %>%
+                head(1),
+              aes(x=min(timing_limits) - 10, 
+                  y="icu_p", 
+                  label=toupper(letters[length(unique(peaks.dt$compartment)) + 1])),
+              inherit.aes = FALSE)+
     thm_bottom
   p2 <- plot_grid(
     p + no_legend(),
@@ -330,7 +347,7 @@ tsplotter <- function(subdt,
     }
     y_axis_name <- compartment_names[[c]]
     if(is.null(title)){
-      title_1 <- y_axis_name
+      title_1 <- paste(toupper(letters[i]), "-", y_axis_name)
     }else{
       title_1 <- title[i]
     }
@@ -622,16 +639,10 @@ cumulative_totals <- list(
 
 The following series of plots show overall outcomes: incidence of cases, prevalence of hospitalised patients, incidence and cumulative number of deaths.
 
-The timing of the peak is very sensitive to when community transmission stars in a country, and what interventions are used to mitigate the epidemic. In the projected epidemic the median peak number of symptomatic cases across all model projections is `r peaks_median_numbers$cases_reported`, forecast to occur on `r peaks_dates_and_days_after$cases_reported` (Fig. \@ref(fig:tsoverall)). The predicted peak in hospitalised cases occurs about `r dates_difference$cases_vs_icu`, with a median of `r peaks_median_numbers$nonicu_p` cases in ward and `r peaks_median_numbers$icu_p` in ICU`r peaks_dates$nonicu_p`. The peak daily number of deaths is predicted to follow about `r dates_difference$icu_vs_death`, with the median estimate of `r peaks_median_numbers$death_o` new deaths that day. Cumulative number of deaths is predicted to be `r cumulative_totals$death_o`. 
+The timing of the peak is very sensitive to when community transmission starts in a country, and what interventions are used to mitigate the epidemic. In the projected epidemic the median peak number of symptomatic cases across all model projections is `r peaks_median_numbers$cases_reported`, forecast to occur on `r peaks_dates_and_days_after$cases_reported` (Fig. \@ref(fig:tsoverall)A, E). The predicted peak in hospitalised cases occurs about `r dates_difference$cases_vs_icu`, with a median of `r peaks_median_numbers$nonicu_p` cases in ward and `r peaks_median_numbers$icu_p` in ICU`r peaks_dates$nonicu_p` (Fig. \@ref(fig:tsoverall)B-C, E). The peak daily number of deaths is predicted to follow about `r dates_difference$icu_vs_death`, with the median estimate of `r peaks_median_numbers$death_o` new deaths that day (Fig. \@ref(fig:tsoverall)D-E). Cumulative number of deaths is predicted to be `r cumulative_totals$death_o`. 
 
 ```{r tsoverall, echo=FALSE, fig.height=8.5, fig.cap="Overall Outcome Time Series"}
-#plot_grid(
-  summary_tsplotter(subdyn)#,
-#  summary_tsCplotter(subdyn[compartment == "death_o"], "A) Cumulative Deaths", 
-#                    timing.title = "B) Last Timing", y.axis.title = "Deaths", 
-#                    use.legend=FALSE),
-#   ncol = 1, rel_heights = c(4,1)
-# )
+summary_tsplotter(subdyn)
 ```
 
 ```{r echo=FALSE}
@@ -777,7 +788,7 @@ Each plot includes several stochastic timelines, and shows the average height an
 
 The percentage of symptomatic cases in each age group is mostly in proportion to the age structure of the country (Fig. \@ref(fig:byage)), with `r under_15_symtomatic_percentage` being under the age of 15 and `r over_60_symtomatic_percentage` being aged 60 or over. However, the age distribution of hospitalised cases is inverted, with the predicted median number of hospitalisations of those aged 60 and over much higher than among those aged 45-59 (`r median_ward_45_59` versus `r median_ward_over_60` in ward and `r median_icu_over_60` versus `r median_icu_45_59` in ICU). This pattern in the upper age groups is maintained for the predicted median peak in the daily number of deaths (`r peaks_median_over_60` among those aged 60 and over versus `r peaks_median_45_59` among those aged 45-59) and cumulative number of deaths (`r cumulative_median_death_over_60` among those aged 60 and over versus `r cumulative_median_45_59` among those aged 45-59). This occurs because COVID-19 has been shown to cause more severe disease and more mortality in older people.
 
-Generally, the number of hospitalisations and deaths increase with each increasing age band, although there seems little, if any, difference between those aged 15-29 and those aged 30-44 in this respect. We see that peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups.
+Generally, the number of hospitalisations and deaths increase with each increasing age band, although there seems little, if any, difference between those aged 15-29 and those aged 30-44 in this respect. In Fig. \@ref(fig:byage), we see that peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups.
 
 ```{r byage, echo=FALSE, fig.height=9, fig.cap="Outcome Timeseries by Age"}
 tsplotter(subdyn)
