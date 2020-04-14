@@ -65,24 +65,29 @@ ROOTS := $(shell cat LMICroots.txt)
 #${HPCDIR}/%/001.sev: translate.R ${HPCDIR}/%/001.qs
 #	time Rscript $< ${HPCDIR} ${COVIDMPATH} $@
 
+# TODO: this depends on country/001 - 189.qs
 ${HPCDIR}/%/peak.qs: digest.R
-	time Rscript $^ $@
+	Rscript $^ $@
 
-${HPCDIR}/%/accs.qs: ${HPCDIR}/%/peak.qs
+${HPCDIR}/%/accs.qs ${HPCDIR}/%/alls.qs: ${HPCDIR}/%/peak.qs
 
 ${HPCDIR}/%.qs: run_scenarios.R helper_functions.R
 	mkdir -p $(@D)
-	time Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
+	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
+# TODO: this depends on the all countries, peak|accs|001.qs
 ${HPCDIR}/summary.tar.gz:
-	tar -czvf $@ */peak.qs */accs.qs */001.qs
+	cd $(@D) && tar -czvf $(@F) */peak.qs */accs.qs */alls.qs */001.qs
 
 
 
 
 ### TESTING TARGETS
 
-TESTCTY := uganda
+TESTCTY := caboverde
+
+${TESTCTY}/peak.qs: digest.R
+	time Rscript $^ $@
 
 ${TESTCTY}/%.qs: run_scenarios.R helper_functions.R
 	mkdir -p $(@D)
@@ -92,7 +97,11 @@ testint1: $(patsubst %,${TESTCTY}/%.qs,001)
 
 testint: $(patsubst %,${TESTCTY}/%.qs,$(shell seq -f%03g 1 189))
 
-allsev: $(foreach CTY,${ROOTS},$(patsubst %,${HPCDIR}/interventions/${CTY}/%.sev,$(shell seq -f%03g 1 189)))
+testdig: ${TESTCTY}/peak.qs
+
+# TODO: this depends on the all countries, peak|accs|001.qs
+test.tar.gz:
+	tar -czvf $@ */peak.qs */accs.qs */alls.qs */001.qs
 
 #LMICargs.txt: LMIC.txt
 #	sed "s/[^a-zA-Z]//g" $^ > $@

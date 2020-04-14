@@ -26,6 +26,45 @@ expander <- data.table(expand.grid(
   t=1:365
 ))
 
+inc.expander <- data.table(expand.grid(
+  run=1:max(ref$run),
+  age=factor(c(levels(ref$age), "all"), ordered = TRUE),
+  compartment=c("cases","death_o"),
+  t=1:365
+))
+
+prev.expander <- data.table(expand.grid(
+  run=1:max(ref$run),
+  age=factor(c(levels(ref$age), "all"), ordered = TRUE),
+  compartment=c("nonicu_p","icu_p"),
+  t=1:365
+))
+
+full <- function(dt, scen_id) {
+  inc <- ref[inc.expander, on=.(run, age, compartment, t)]
+  inc[is.na(value), value := 0L]
+  prev <- ref[prev.expander, on=.(run, age, compartment, t)]
+  prev[is.na(value), value := 0L]
+  tmp <- rbind(inc, prev)
+  # make the all ages category
+  tmp <- rbind(tmp, tmp[,.(value = sum(value), age = "all"),by=.(run, t, compartment)])
+  rm(inc, prev)
+  qtmp <- tmp[order(t),.(t, value = cumsum(value)), by=.(run, age, compartment)][,{
+    qs <- quantile(value, probs = c(0.025,0.25,0.5,0.75,0.975))
+    as.list(qs)
+  }, by=.(compartment, t, age)]
+  
+  return(qtmp[order(t),.(
+    t,
+    lo.lo = diff(c(0,`2.5%`)),
+    lo = diff(c(0,`25%`)),
+    med = diff(c(0,`50%`)),
+    hi = diff(c(0,`75%`)),
+    hi.hi = diff(c(0,`97.5%`))
+  ),keyby=.(compartment, age)][, scen_id := scen_id ])
+}
+
+
 #' questions:
 #'  - what is the unmitigated time line?
 #'  - how does an intervention suppress (i.e., reduce [& delay for peaks]):
@@ -72,8 +111,6 @@ combine_hosp_p <- function(dt) {
   comb[, .(value = sum(value), compartment = "hosp_p"), keyby=.(run, t, age)]
 }
 
-combined_hosp_ref <- combine_hosp_p(ref)
-
 calcAll <- function(dt) {
   hospdt <- combine_hosp_p(dt)
   rbind(
@@ -94,11 +131,13 @@ refvalues <- calcAll(ref)
 
 peaks <- list()
 accs <- list()
+alls <- list(full(ref, 1))
 
 for (ind in seq_along(simfns[-1])) {
   scen <- simfns[ind+1]
   scen_id <- as.integer(gsub("^.+/(\\d+)\\.qs$","\\1", scen))
-  scenres <- calcAll(qread(scen))
+  raw.dt <- qread(scen)
+  scenres <- calcAll(raw.dt)
   compar_peak <- scenres[
     measure == "peak"
   ][
@@ -118,6 +157,7 @@ for (ind in seq_along(simfns[-1])) {
     names(qs) <- c("lo95","lo50","med","hi50","hi95")
     as.list(qs)
   }, keyby=.(metric, compartment, age)]
+  rm(compar_peak)
   
   compar_acc <- scenres[
     measure == "acc"
@@ -138,16 +178,20 @@ for (ind in seq_along(simfns[-1])) {
     names(qs) <- c("lo95","lo50","med","hi50","hi95")
     as.list(qs)
   }, keyby=.(metric, compartment, age, t)]
+  rm(compar_acc)
   
   peaks[[ind]] <- qs_peak[, scen_id := scen_id ]
-  accs[[ind]] <- compar_acc[, scen_id := scen_id ]
+  accs[[ind]] <- qs_acc[, scen_id := scen_id ]
+  alls[[ind + 1]] <- full(raw.dt, scen_id)
 }
 
 peak.dt <- rbindlist(peaks)
 accs.dt <- rbindlist(accs)
+alls.dt <- rbindlist(alls)
 
 qsave(peak.dt, tail(.args, 1))
 qsave(accs.dt, gsub("peak", "accs", tail(.args, 1)))
+qsave(alls.dt, gsub("peak", "alls", tail(.args, 1)))
 
 #' @examples
 #' require(ggplot2)
