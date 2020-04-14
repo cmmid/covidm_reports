@@ -10,7 +10,7 @@ params:
   contactmatrices: "`r matrix()`"
   poppyra: "`r integer()`"
   day0: "2020-04-01"
-title: "`r sprintf('Report for %s', params$location)`"
+title: "`r sprintf('Modelling projections for COVID-19 epidemic in for %s', params$location)`"
 bibliography: COVID.bib
 ---
 ```{r echo=FALSE, include=FALSE}
@@ -109,8 +109,8 @@ compartments <- c("cases_reported", "nonicu_p", "icu_p", "death_o")
 
 compartment_names <- c(
   `cases_reported` = "Symptomatic Cases",
-  `nonicu_p` = "Hospitilised Cases (Ward)",
-  `icu_p` = "Hospitilised Cases (ICU)",
+  `nonicu_p` = "Hospitalised Cases (Ward)",
+  `icu_p` = "Hospitalised Cases (ICU)",
   `death_o` = "Deaths"
 )
 
@@ -447,31 +447,11 @@ summary_tsCplotter <- function(subdt, title, timing.title, y.axis.title, use.leg
 
 # Overview
 
-The World Health Organization (WHO) declared COVID-19 a public health emergency of international concern [@RN7] and then a pandemic [@RN8], citing its rapid global spread and risk of overwhelming healthcare services with patients requiring critical care. This is of particular concern in low- and middle-income countries where resources were already limited and over-stretched.
+In this country-level report, we use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic and time to key events such as the predicted peaks in incidence of symptomatic cases and prevalence of hospitalised cases. We stratify hospitalised cases into general or critical hospitalisation. We also project deaths though time stratified by age using data on the expected age distribution of mortality.
 
-Cases of COVID-19 in African countries have tended to have been reported later than elsewhere around the world. If this means that the epidemics in Africa are less advanced to date than those elsewhere then perhaps the experience of other countries can help African countries to act fast in preparing for the impact of COVID-19. That said, the total number of reported cases across Africa has already exceeded 10 000 as of 7 April 2020.
+The model is adapted to each country by applying the demography (age distribution in 5 year bands) of the country. We also use a mixing matrix approximated to each country either from calculated contact matrices or measured contact matrices. The reports will be updated by information on proposed interventions. Modelling methods and parameters are given at the end of the report.
 
-In this country-level report, we use a stochastic age-structured dynamic transmission model to predict the scale of the epidemic and time to key events such as the predicted peaks in (i) onset of symptoms, (ii) prevalence of cases needed general or critical hospitalisation, (iii) daily deaths and (iv) cumulative deaths. We also supply the age-distribution breakdown of these predictions.
-
-# Methods, data and assumptions
-
-We used the stochastic age-structured dynamic transmission model reported in [@davies2020].
-
-## Dynamic transmission model 
-
-We analysed a stochastic compartmental model stratified into 5-year age bands, with individuals classified according to current disease status (Fig. 1) and transmission between groups based on UK social mixing patterns ([@davies_age_2020;@mossong2008social]; full details in Supplementary Information). After infection with SARS-CoV-2 in the model, susceptible individuals pass through a latent period before becoming infectious, either with a preclinical and then clinical infection, or with a subclinical infection, before recovery or isolation. We refer to those infections causing few or no symptoms as subclinical. We assume older individuals are more likely to show clinical symptoms [@davies_age_2020].
-
-## Key model parameters 
-
-We collated multiple sources of evidence to estimate key model parameters (Table S1). In a meta-analysis, we estimated that the basic reproduction number, $R_0$, was 2.7 (95% credible interval: 1.6–3.9) across settings without substantial control measures in place ($R_0$ describes the average number of secondary infections caused by a typical primary infection in a completely susceptible population). We derived age-stratified case fatality ratios (CFR) to estimate a CFR that ranged substantially across age groups, from 0.1% in the 20–29 age group to 7.7% in the over-80 age group.
-
-## Key parameters of the transmission model 
-
-We used a serial interval of 6.5 days based on published studies [@li2020early;@bi2020epidemiology;@nishiura2020serial], and assumed that the length of the preclinical period was 30% of the total period of clinical infectiousness [@liu2020contribution]. From this, we fixed the mean of the latent period to 4 days, the mean duration of preclinical infectiousness to 1.5 days, and the mean duration of clinical infectiousness to 3.5 days. The basic reproduction number $R_0$ was estimated by synthesizing the results of a literature review (Fig. S1). For each reported value of the basic reproduction number, we matched a flexible PERT distribution (a shifted beta distribution parameterised by minimum, maximum, and mode) to the median and confidence interval reported in each study. We sampled from the resulting distributions, weighting each study equally, to obtain estimates of $R_0$ for our simulations. The age-specific clinical fraction, $y_i$, was adopted from an estimate based on case data from 6 countries [@davies_age_2020], and the relative infectiousness of subclinical cases, $f$, was assumed to be 50% relative to clinical cases, as we assumed in a previous study [@davies_age_2020].
-
-## Hospital burden estimation
-
-To calculate ICU and non-ICU beds in use through time, we scaled age-stratified symptomatic cases by age-specific hospitalisation and critical outcome probability, then summed to get the total number of hospitalised and critical cases. We then distributed hospitalised cases over time based on expected time of hospitalisation and duration admitted. We assumed gamma-distributed delays, with the shape parameter set equal to the mean, for: delay from symptom onset to hospitalisation of mean 7 days (standard deviation 2.65) [@linton2020incubation;@cao2020trial]; delay from hospitalisation to discharge / death for non-ICU patients of mean 8 days (s.d. 2.83) [@NHSDigital]; delay from hospitalisation to discharge / death for ICU patients of mean 10 days (s.d. 3.16) [@cao2020trial]; and delay from onset to death of mean 22 days (s.d. 4.69) [@linton2020incubation;@cao2020trial]. We calculated the age-specific case fatality ratio based on data from the COVID-19 outbreak in China and on the Diamond Princess cruise ship. We first calculated the naive case fatality ratio, nCFR, (i.e. deaths/cases) for each age group, then scaled down the naive CFR based on a correction factor estimated from data from the Diamond Princess [@russell2020] to give an adjusted CFR. We then calculated risk of hospitalisation based on the ratio of severe and critical cases to cases (18.5%) and deaths to cases (2.3%) in the early China data, which we took to imply 8.04 times more hospitalisations than deaths in each age group. We assumed all age groups had a 30% risk of requiring critical care if hospitalised [@cao2020trial].”
+Please note this report is updated frequently as new information is included.
 
 ## Population Structure
 
@@ -641,9 +621,12 @@ cumulative_totals <- list(
 
 # Overall Results
 
-The following series of plots show overall outcomes, particularly: incidence of cases, prevalence of hospitalised patients, and incidence and cumulative incidence of deaths.
+The following series of plots show overall outcomes: 
+- incidence of cases, 
+- prevalence of hospitalised patients, 
+- incidence and cumulative number of deaths.
 
-Figure 1 shows that the median peak number of symptomatic cases across all model projections is `r peaks_median_numbers$cases_reported`, forecast to occur on `r peaks_dates_and_days_after$cases_reported`. The predicted peak in hospitalised cases occurs about `r dates_difference$cases_vs_icu` (Figures 2 and 3), with a median of `r peaks_median_numbers$nonicu_p` cases in ward and `r peaks_median_numbers$icu_p` in ICU on `r peaks_dates$nonicu_p`. The peak daily number of deaths is predicted to follow about `r dates_difference$icu_vs_death` on `r peaks_dates$death_o`, with the median estimate of `r peaks_median_numbers$death_o` new deaths that day (Figure 4). Figure 5 shows that the cumulative number of deaths is predicted to be `r cumulative_totals$death_o`. 
+The timing of the peak is very sensitive to when community transmission stars in a country, and what interventions are used to mitigate the epidemic. In the projected epidemic the median peak number of symptomatic cases across all model projections is `r peaks_median_numbers$cases_reported`, forecast to occur on `r peaks_dates_and_days_after$cases_reported` (Figure 1). The predicted peak in hospitalised cases occurs about `r dates_difference$cases_vs_icu` (Figures 2 and 3), with a median of `r peaks_median_numbers$nonicu_p` cases in ward and `r peaks_median_numbers$icu_p` in ICU on `r peaks_dates$nonicu_p`. The peak daily number of deaths is predicted to follow about `r dates_difference$icu_vs_death` on `r peaks_dates$death_o`, with the median estimate of `r peaks_median_numbers$death_o` new deaths that day (Figure 4). Figure 5 shows that the cumulative number of deaths is predicted to be `r cumulative_totals$death_o`. 
 
 ```{r echo=FALSE, fig.height=9}
 summary_tsplotter(subdyn)
@@ -795,9 +778,11 @@ cumulative_median_45_59 <- cumulative_median_by_age$death_o %>%
 
 ## Results by Age Group
 
-Each plot includes several stochastic timelines, and shows marginal distributions for the height and timing of peaks.
+Each plot includes several stochastic timelines, and shows the average height and timing of peaks.
 
-Figure 6 simply shows that the percentage of symptomatic cases in each age group is mostly in proportion to the age structure of the country, with `r under_15_symtomatic_percentage` being under the age of 15 and `r over_60_symtomatic_percentage` being aged 60 or over. However, the age distribution of hospitalised cases is inverted (Figures 7 and 8), with the predicted median number of hospitalisations of those aged 60 and over much higher than among those aged 45-59 (`r median_ward_45_59` versus `r median_ward_over_60` in ward and `r median_icu_over_60` versus `r median_icu_45_59` in ICU). This pattern in the upper age groups is maintained for the predicted median peak in the daily number of deaths (`r peaks_median_over_60` among those aged 60 and over versus `r peaks_median_45_59` among those aged 45-59) and cumulative number of deaths (`r cumulative_median_death_over_60` among those aged 60 and over versus `r cumulative_median_45_59` among those aged 45-59). Generally, the number of hospitalisations and deaths increase with each increasing age band, although there seems little, if any, difference between those aged 15-29 and those aged 30-44 in this respect. Across Figures 6-10, we see that peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups, with this difference being most notable for cumulative deaths.
+The percentage of symptomatic cases in each age group is mostly in proportion to the age structure of the country (Figure 6), with `r under_15_symtomatic_percentage` being under the age of 15 and `r over_60_symtomatic_percentage` being aged 60 or over. However, the age distribution of hospitalised cases is inverted (Figures 7 and 8), with the predicted median number of hospitalisations of those aged 60 and over much higher than among those aged 45-59 (`r median_ward_45_59` versus `r median_ward_over_60` in ward and `r median_icu_over_60` versus `r median_icu_45_59` in ICU). This pattern in the upper age groups is maintained for the predicted median peak in the daily number of deaths (`r peaks_median_over_60` among those aged 60 and over versus `r peaks_median_45_59` among those aged 45-59) and cumulative number of deaths (`r cumulative_median_death_over_60` among those aged 60 and over versus `r cumulative_median_45_59` among those aged 45-59). This occurs because COVID-19 has been shown to cause more severe disease and more mortality in older people.
+
+Generally, the number of hospitalisations and deaths increase with each increasing age band, although there seems little, if any, difference between those aged 15-29 and those aged 30-44 in this respect. In Figures 6-10, we see that peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups, with this difference being most notable for cumulative deaths.
 
 ```{r echo=FALSE, fig.height=9}
 tsplotter(subdyn)
@@ -820,7 +805,7 @@ suppressWarnings(output <- subdyn %>%
                    select(-compartment) %>% 
                    pivot_wider(id_cols=age, names_from=compartment_names, values_from=mean_value) %>% 
                    rename(Age=age) %>% 
-                   select(Age, `Symptomatic Cases`, `Hospitilised Cases (Ward)`, `Hospitilised Cases (ICU)`, Deaths)) 
+                   select(Age, `Symptomatic Cases`, `Hospitalised Cases (Ward)`, `Hospitalised Cases (ICU)`, Deaths)) 
                    
 kable(output, caption = "Summary of mean numbers for each compartment and age group.")
 ```
@@ -831,5 +816,25 @@ kable(output, caption = "Summary of mean numbers for each compartment and age gr
 # Conclusions
 
 Based on the projections, there is likely to be a large number of cases and high demand for medical care. Preparedness activities are needed.
+
+# Methods, data and assumptions
+
+We used the stochastic age-structured dynamic transmission model reported in [@davies2020].
+
+## Dynamic transmission model 
+
+We analysed a stochastic compartmental model stratified into 5-year age bands, with individuals classified according to current disease status (Fig. 1) and transmission between groups based on UK social mixing patterns ([@davies_age_2020;@mossong2008social]; full details in Supplementary Information). After infection with SARS-CoV-2 in the model, susceptible individuals pass through a latent period before becoming infectious, either with a preclinical and then clinical infection, or with a subclinical infection, before recovery or isolation. We refer to those infections causing few or no symptoms as subclinical. We assume older individuals are more likely to show clinical symptoms [@davies_age_2020].
+
+## Key model parameters 
+
+We collated multiple sources of evidence to estimate key model parameters (Table S1). In a meta-analysis, we estimated that the basic reproduction number, $R_0$, was 2.7 (95% credible interval: 1.6–3.9) across settings without substantial control measures in place ($R_0$ describes the average number of secondary infections caused by a typical primary infection in a completely susceptible population). We derived age-stratified case fatality ratios (CFR) to estimate a CFR that ranged substantially across age groups, from 0.1% in the 20–29 age group to 7.7% in the over-80 age group.
+
+## Key parameters of the transmission model 
+
+We used a serial interval of 6.5 days based on published studies [@li2020early;@bi2020epidemiology;@nishiura2020serial], and assumed that the length of the preclinical period was 30% of the total period of clinical infectiousness [@liu2020contribution]. From this, we fixed the mean of the latent period to 4 days, the mean duration of preclinical infectiousness to 1.5 days, and the mean duration of clinical infectiousness to 3.5 days. The basic reproduction number $R_0$ was estimated by synthesizing the results of a literature review (Fig. S1). For each reported value of the basic reproduction number, we matched a flexible PERT distribution (a shifted beta distribution parameterised by minimum, maximum, and mode) to the median and confidence interval reported in each study. We sampled from the resulting distributions, weighting each study equally, to obtain estimates of $R_0$ for our simulations. The age-specific clinical fraction, $y_i$, was adopted from an estimate based on case data from 6 countries [@davies_age_2020], and the relative infectiousness of subclinical cases, $f$, was assumed to be 50% relative to clinical cases, as we assumed in a previous study [@davies_age_2020].
+
+## Hospital burden estimation
+
+To calculate ICU and non-ICU beds in use through time, we scaled age-stratified symptomatic cases by age-specific hospitalisation and critical outcome probability, then summed to get the total number of hospitalised and critical cases. We then distributed hospitalised cases over time based on expected time of hospitalisation and duration admitted. We assumed gamma-distributed delays, with the shape parameter set equal to the mean, for: delay from symptom onset to hospitalisation of mean 7 days (standard deviation 2.65) [@linton2020incubation;@cao2020trial]; delay from hospitalisation to discharge / death for non-ICU patients of mean 8 days (s.d. 2.83) [@NHSDigital]; delay from hospitalisation to discharge / death for ICU patients of mean 10 days (s.d. 3.16) [@cao2020trial]; and delay from onset to death of mean 22 days (s.d. 4.69) [@linton2020incubation;@cao2020trial]. We calculated the age-specific case fatality ratio based on data from the COVID-19 outbreak in China and on the Diamond Princess cruise ship. We first calculated the naive case fatality ratio, nCFR, (i.e. deaths/cases) for each age group, then scaled down the naive CFR based on a correction factor estimated from data from the Diamond Princess [@russell2020] to give an adjusted CFR. We then calculated risk of hospitalisation based on the ratio of severe and critical cases to cases (18.5%) and deaths to cases (2.3%) in the early China data, which we took to imply 8.04 times more hospitalisations than deaths in each age group. We assumed all age groups had a 30% risk of requiring critical care if hospitalised [@cao2020trial].”
 
 # References
