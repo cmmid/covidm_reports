@@ -62,15 +62,35 @@ testps: ${INTINPUTDIR}/caboverde/params_set.rds | LMICparams_set.txt
 
 ROOTS := $(shell cat LMICroots.txt)
 
-${HPCDIR}/%/001.sev: translate.R ${HPCDIR}/%/001.qs
-	time Rscript $< ${HPCDIR} ${COVIDMPATH} $@
+#${HPCDIR}/%/001.sev: translate.R ${HPCDIR}/%/001.qs
+#	time Rscript $< ${HPCDIR} ${COVIDMPATH} $@
+
+${HPCDIR}/%/peak.qs: digest.R
+	time Rscript $^ $@
+
+${HPCDIR}/%/accs.qs: ${HPCDIR}/%/peak.qs
 
 ${HPCDIR}/%.qs: run_scenarios.R helper_functions.R
-	exit 1
 	mkdir -p $(@D)
 	time Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
-testint: ${HPCDIR}/caboverde/001.sev
+${HPCDIR}/summary.tar.gz:
+	tar -czvf $@ */peak.qs */accs.qs */001.qs
+
+
+
+
+### TESTING TARGETS
+
+TESTCTY := uganda
+
+${TESTCTY}/%.qs: run_scenarios.R helper_functions.R
+	mkdir -p $(@D)
+	SIMRUNS=10 time Rscript $^ ${COVIDMPATH} ${TESTCTY} $(subst /, ,$*) ${INTINPUTDIR} $@
+
+testint1: $(patsubst %,${TESTCTY}/%.qs,001)
+
+testint: $(patsubst %,${TESTCTY}/%.qs,$(shell seq -f%03g 1 189))
 
 allsev: $(foreach CTY,${ROOTS},$(patsubst %,${HPCDIR}/interventions/${CTY}/%.sev,$(shell seq -f%03g 1 189)))
 
@@ -87,13 +107,25 @@ allsev: $(foreach CTY,${ROOTS},$(patsubst %,${HPCDIR}/interventions/${CTY}/%.sev
 
 #allreps: $(patsubst %-res.rds,%.pdf,$(subst ${DATADIR},${REPDIR},${TARS}))
 
-#${DATADIR}/%-res.rds: X2-LMIC.R LMICargs.txt LMIC.txt | ${DATADIR}
-#	Rscript $< .. 100 $(filter-out $<,$^) $@
+RUNS ?= 100
 
-{REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd COVID.bib | ${REPDIR}
+testres: ${DATADIR}/Angola-res.rds
+
+allres: $(addprefix ${DATADIR}/,$(shell cat LMICargs.txt))
+
+${DATADIR}/%-res.rds: X2-LMIC.R LMICargs.txt LMIC.txt ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv | ${DATADIR}
+	Rscript $^ ${COVIDMPATH} ${RUNS} $@
+
+${REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd COVID.bib | ${REPDIR}
 	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
 
-testreport.pdf: report.R ${DATADIR}/CaboVerde-res.rds report-template.Rmd COVID.bib
+REPS := $(addprefix ${REPDIR}/,$(subst -res.rds,.pdf,$(shell cat LMICargs.txt)))
+
+allrep: ${REPS}
+
+TESTREP := Comoros
+
+testreport.pdf: report.R ${DATADIR}/${TESTREP}-res.rds report-template.Rmd COVID.bib
 	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
 	
 
