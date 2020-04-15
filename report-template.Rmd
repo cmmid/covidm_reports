@@ -12,7 +12,7 @@ params:
   poppyra: "`r integer()`"
   day0: "2020-04-01"
   is_analogy: "`r NA_character_`"
-title: "`r sprintf('Modelling projections for COVID-19 epidemic in for %s', params$location)`"
+title: "`r sprintf('Modelling projections for COVID-19 epidemic in %s', params$location)`"
 bibliography: COVID.bib
 ---
 ```{r echo=FALSE, include=FALSE}
