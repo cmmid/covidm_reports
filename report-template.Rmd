@@ -14,6 +14,18 @@ params:
   is_analogy: "`r NA_character_`"
 title: "`r sprintf('Modelling projections for COVID-19 epidemic in for %s', params$location)`"
 bibliography: COVID.bib
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage[normalem]{ulem}
 ---
 ```{r echo=FALSE, include=FALSE}
 suppressPackageStartupMessages({
@@ -24,6 +36,7 @@ suppressPackageStartupMessages({
   require(knitr)
   require(tidyverse)
   require(RColorBrewer)
+  require(kableExtra)
   
 })
 
@@ -790,7 +803,7 @@ The percentage of symptomatic cases in each age group is mostly in proportion to
 
 Generally, the number of hospitalisations and deaths increase with each increasing age band, although there seems little, if any, difference between those aged 15-29 and those aged 30-44 in this respect. In Fig. \@ref(fig:byage), we see that peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups.
 
-```{r byage, echo=FALSE, fig.height=9, fig.cap="Outcome Timeseries by Age"}
+```{r byage, echo=FALSE, fig.height=8, fig.cap="Outcome Timeseries by Age"}
 tsplotter(subdyn)
 ```
 
@@ -809,7 +822,7 @@ suppressWarnings(output <- subdyn %>%
                    rename(Age=age) %>% 
                    select(Age, `Symptomatic Cases`, `Hospitalised Cases (Ward)`, `Hospitalised Cases (ICU)`, Deaths)) 
                    
-kable(output)
+kable(output, booktabs=TRUE)
 ```
 
 # Conclusions
@@ -835,5 +848,22 @@ We used a serial interval of 6.5 days based on published studies [@li2020early;@
 ## Hospital burden estimation
 
 To calculate ICU and non-ICU beds in use through time, we scaled age-stratified symptomatic cases by age-specific hospitalisation and critical outcome probability, then summed to get the total number of hospitalised and critical cases. We then distributed hospitalised cases over time based on expected time of hospitalisation and duration admitted. We assumed gamma-distributed delays, with the shape parameter set equal to the mean, for: delay from symptom onset to hospitalisation of mean 7 days (standard deviation 2.65) [@linton2020incubation;@cao2020trial]; delay from hospitalisation to discharge / death for non-ICU patients of mean 8 days (s.d. 2.83) [@NHSDigital]; delay from hospitalisation to discharge / death for ICU patients of mean 10 days (s.d. 3.16) [@cao2020trial]; and delay from onset to death of mean 22 days (s.d. 4.69) [@linton2020incubation;@cao2020trial]. We calculated the age-specific case fatality ratio based on data from the COVID-19 outbreak in China and on the Diamond Princess cruise ship. We first calculated the naive case fatality ratio, nCFR, (i.e. deaths/cases) for each age group, then scaled down the naive CFR based on a correction factor estimated from data from the Diamond Princess [@russell2020] to give an adjusted CFR. We then calculated risk of hospitalisation based on the ratio of severe and critical cases to cases (18.5%) and deaths to cases (2.3%) in the early China data, which we took to imply 8.04 times more hospitalisations than deaths in each age group. We assumed all age groups had a 30% risk of requiring critical care if hospitalised [@cao2020trial].”
+
+```{r echo=FALSE}
+parameter_set_df <- data.frame(matrix(c("Basic reproductive rate", "$R_0$", "Sampled PERT distribution", "$\\mu = 0.5$", "1.6–3.9", "References list",
+                                        "Age-specific clinical fraction", "$y_i$", "Fixed", "Age-dependent", "0.1-0.2", "[@davies_age_2020]",
+                                        "Relative infectiousness of subclinical cases", "$f$", "Fixed", "$0.5*y_i$", "0.1-0.5", "[@davies_age_2020]",
+                                        "Case fatality ratio", "CFR", "Normal", "$\\mu = 0.5$", "0.001-0.077", "References list",
+                                        "Serial interval", "SI", "Normal", "$\\mu = 6.5$days", "1.6–3.9", "[@li2020early;@bi2020epidemiology;@nishiura2020serial]",
+                                        "Length of preclinical period", "l", "Fixed", "30\\%", "0.3", "[@liu2020contribution]",
+                                        "Mean latent period", "p", "Fixed", "4 days", "4", "[@liu2020contribution]",
+                                        "Mean duration of preclinical infectiousness", "$d_p$", "Fixed", "1.5 days", "1.5", "[@liu2020contribution]",
+                                        "Mean duration of clinical infectiousness", "$d_c$", "Fixed", "3.5 days", "1.5", "[@liu2020contribution]",
+                                        "Mean latent period", "p", "Fixed", "4 days", "4", "[@liu2020contribution]"), 
+                                      ncol = 6, byrow = TRUE))
+names(parameter_set_df) <- c("Short English Name", "Abbreviation", "Assumed Distribution", "Distribution Parameters", "95\\% CI", "References")
+kableExtra::kable(parameter_set_df, "markdown", booktabs=TRUE, escape=FALSE)# %>% 
+  # kable_styling(latex_options="scale_down")
+```
 
 # References
