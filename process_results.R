@@ -1,4 +1,6 @@
-library("ggh4x")
+#' @example
+#' remotes::install_github("https://github.com/teunbrand/ggh4x")
+library("ggh4x") 
 library("qs")
 
 cm_path = "~/workspace/covidm/"; ### CHANGE THIS to reflect the path to covidm.
