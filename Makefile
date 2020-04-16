@@ -79,15 +79,16 @@ ${HPCDIR}/%.qs: run_scenarios.R helper_functions.R
 ${HPCDIR}/summary.tar.gz:
 	cd $(@D) && tar -czvf $(@F) */peak.qs */accs.qs */alls.qs */001.qs
 
-
+plotfuns.rda: plotting_support.R
+	${R}
 
 
 ### TESTING TARGETS
 
-TESTCTY := uganda
+TESTCTY := caboverde
 
-${TESTCTY}/peak.qs: digest.R
-	time Rscript $^ $@
+${TESTCTY}/peak.qs: digest.R $(patsubst %,${TESTCTY}/%.qs,$(shell seq -f%03g 1 189))
+	time Rscript $< $@
 
 ${TESTCTY}/%.qs: run_scenarios.R helper_functions.R
 	mkdir -p $(@D)
@@ -137,7 +138,7 @@ REPS := $(addprefix ${REPDIR}/,$(subst -res.rds,.pdf,$(shell cat LMICargs.txt)))
 
 allrep: ${REPS}
 
-TESTREP := Comoros
+TESTREP := Uganda
 
 testreport.pdf: report.R ${DATADIR}/${TESTREP}-res.rds report-template.Rmd COVID.bib
 	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv $@
