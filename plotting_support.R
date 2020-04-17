@@ -5,15 +5,49 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "caboverde/001.qs", "caboverde/alls.qs"
+  "plotfuns.rda"
 ) else commandArgs(trailingOnly = TRUE)
 
 refprobs <- c(lo.lo=0.025, lo=0.25, med=0.5, hi=0.75, hi.hi=0.975)
 
-unmitigated.addall <- function(dt) setkeyv(rbind(
-  dt,
-  dt[, .(value = sum(value), age ="all"), by=setdiff(key(dt),"age")]
-), key(dt))
+expander <- function(
+  dt, runs = 1:max(dt$run),
+  ages = factor(levels(dt$age), ordered = TRUE),
+  ts = 1:365,
+  ...
+) data.table(expand.grid(
+  run = runs,
+  age = ages,
+  ...,
+  t = ts
+))
+
+inc.expander <- function(
+  dt, compartment=c("cases","death_o"),
+  ...
+) expander(dt, compartment=compartment, ...)
+
+
+prev.expander <- function(
+  dt, compartment=c("nonicu_p","icu_p"),
+  ...
+) expander(dt, compartment=compartment, ...)
+  
+unmitigated.addall <- function(dt) {
+  tmp <- dt[
+    expander(dt, compartment = unique(dt$compartment)),
+    on=setdiff(colnames(dt),"value")
+  ][, value := ifelse(is.na(value), 0L, value) ]
+  tmp <- rbind(tmp[
+    compartment %in% c("icu_p","nonicu_p"),
+    .(value = sum(value), compartment ="hosp_p"),
+    by=setdiff(key(dt),"compartment")
+  ], tmp)
+  return(setkeyv(rbind(
+    tmp,
+    tmp[, .(value = sum(value), age ="all"), by=setdiff(key(dt),"age")]
+  ), key(dt)))
+}
 
 unmitigated.peaks <- function(dt) dt[,
   .SD[which.max(value)]
@@ -47,9 +81,16 @@ meltquantiles <- function(dt, probs = refprobs) {
 }
 
 scale_x_t <- function(
-  name="Days since initial infection seeding",
+  name = "Days since initial infection seeding",
+  expand = c(0, 0),
+  ...
+) scale_x_continuous(name = name, expand = expand, ...)
+
+scale_x_tdate <- function(
+  name=NULL,
   ...
 ) scale_x_continuous(name, ...)
+
 
 scale_y_cases <- function(
   name="Incidence",
@@ -89,16 +130,53 @@ geom_target <- function(
   ))
 }
 
-fct_labels <- function(stack=FALSE, stack.char = ifelse(stack,"\n"," ")) labeller(
+fct_labels <- function(
+  stack=TRUE, stack.char = ifelse(stack,"\n"," "),
+  pre="",
+  ...
+) labeller(
   compartment = c(
-    cases=sprintf("Symptomatic%sCases", stack.char),
-    icu_p=sprintf("Critical Care%sOccupancy", stack.char),
-    nonicu_p=sprintf("General Hospital%sOccupancy", stack.char),
-    hosp_p=sprintf("Total Hospital%sOccupancy", stack.char),
-    death_o="Deaths"
-  )
+    cases=sprintf("%sSymptomatic%sCases", pre, stack.char),
+    icu_p=sprintf("%sCritical Care%sOccupancy", pre, stack.char),
+    nonicu_p=sprintf("%sGeneral Hospital%sOccupancy", pre, stack.char),
+    hosp_p=sprintf("%sAll Hospital%sOccupancy", pre, stack.char),
+    death_o=sprintf("%sDeaths", pre)
+  ), ...
 )
 
+scale_color_quantile <- function(
+  name="Epidemic\nQuantile", values = c(
+    lo.lo = "dodgerblue", lo = scales::muted("dodgerblue"),
+    med = "black",
+    hi = scales::muted("firebrick"), hi.hi = "firebrick"
+  ), ...
+) scale_color_manual(
+  name = name, values = values,
+  ...
+)
+
+scale_alpha_quantile <- function(
+  values = c(lo.lo=0.25, lo=0.5, med=1, hi=0.5, hi.hi=0.25),
+  guide = "none",
+  ...
+) scale_alpha_manual(
+  values = values, guide = guide, ...
+)
+
+scale_color_pop <- function(
+  name = "Age Group\n(% of Pop.)",
+  labels,
+  guide = guide_legend(override.aes = list(alpha = 1, size = 2)),
+  ...
+) scale_color_discrete(
+  name = name,
+  labels = labels,
+  guide = guide,
+  ...
+)
+
+
+save(list = ls(), file = tail(.args, 1))
 
 #' @examples 
 #' 
@@ -155,8 +233,3 @@ fct_labels <- function(stack=FALSE, stack.char = ifelse(stack,"\n"," ")) labelle
 #'  scale_alpha_manual(values = c(med=0.75, r95=0.25, r50=0.5)) +
 #'  coord_cartesian(xlim = c(50, 200)) +
 #'  theme_minimal()
-
-
-ggplot(raw.dt) + aes(t, )
-
-scale_y_logcases

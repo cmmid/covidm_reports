@@ -39,8 +39,6 @@ ${INTINPUTDIR}/%/contact_matrices.rds: create_contact_matrices.R ${INTINPUTDIR}/
 	Rscript $^ ${COVIDMPATH} $* $@
 	[ -f "$@" ] && touch $@
 
-testcm: ${INTINPUTDIR}/uganda/contact_matrices.rds | LMICcontact_matrices.txt
-
 ###############################################################################
 # This is for generating parameter sets
 
@@ -55,15 +53,9 @@ ${INTINPUTDIR}/%/params_set.rds: create_params_set.R ${INTINPUTDIR}/../generatio
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $* $@
 
-testps: ${INTINPUTDIR}/caboverde/params_set.rds | LMICparams_set.txt
-
-
 # All the interventions
 
 ROOTS := $(shell cat LMICroots.txt)
-
-#${HPCDIR}/%/001.sev: translate.R ${HPCDIR}/%/001.qs
-#	time Rscript $< ${HPCDIR} ${COVIDMPATH} $@
 
 # TODO: this depends on country/001 - 189.qs
 ${HPCDIR}/%/peak.qs: digest.R
@@ -82,66 +74,33 @@ ${HPCDIR}/summary.tar.gz:
 plotfuns.rda: plotting_support.R
 	${R}
 
+intplots.rda: intervention_plots.R $(patsubst %,${INTINPUTDIR}/%.rds,scenarios scenarios_overview)
+	${R}
+
+PLOTREF := plotfuns.rda intplots.rda
 
 ### TESTING TARGETS
 
 TESTCTY := caboverde
 
-${TESTCTY}/peak.qs: digest.R $(patsubst %,${TESTCTY}/%.qs,$(shell seq -f%03g 1 189))
-	time Rscript $< $@
+-include testing.makefile
 
-${TESTCTY}/%.qs: run_scenarios.R helper_functions.R
-	mkdir -p $(@D)
-	SIMRUNS=10 time Rscript $^ ${COVIDMPATH} ${TESTCTY} $(subst /, ,$*) ${INTINPUTDIR} $@
+#allres: $(addprefix ${DATADIR}/,$(shell cat LMICargs.txt))
 
-testint1: $(patsubst %,${TESTCTY}/%.qs,001)
+#${REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd COVID.bib | ${REPDIR}
+#	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
 
-testint: $(patsubst %,${TESTCTY}/%.qs,$(shell seq -f%03g 1 189))
+#${REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd COVID.bib | ${REPDIR}
+#	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
 
-testdig: ${TESTCTY}/peak.qs
+#REPS := $(addprefix ${REPDIR}/,$(subst -res.rds,.pdf,$(shell cat LMICargs.txt)))
 
-# TODO: this depends on the all countries, peak|accs|001.qs
-test.tar.gz:
-	tar -czvf $@ */peak.qs */accs.qs */alls.qs */001.qs
+#allrep: ${REPS}
 
-#LMICargs.txt: LMIC.txt
-#	sed "s/[^a-zA-Z]//g" $^ > $@
-#	sed -i '' "s/$$/-res\.rds/" $@
+#TESTREP := Uganda
 
-#testreport.pdf: report-alt.R report-template-alt.Rmd \
-#${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv \
-#${INTINPUTDIR}/../generation_data/data_contacts_missing.csv COVID.bib
-#	Rscript $(filter-out %.bib,$^) caboverde ${INTINPUTDIR} $@
-
-
-
-
-#TARS := $(addprefix ${DATADIR}/,$(shell cat LMICargs.txt))
-
-#alltars: ${TARS}
-
-#allreps: $(patsubst %-res.rds,%.pdf,$(subst ${DATADIR},${REPDIR},${TARS}))
-
-RUNS ?= 100
-
-testres: ${DATADIR}/Angola-res.rds
-
-allres: $(addprefix ${DATADIR}/,$(shell cat LMICargs.txt))
-
-${DATADIR}/%-res.rds: X2-LMIC.R LMICargs.txt LMIC.txt ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv | ${DATADIR}
-	Rscript $^ ${COVIDMPATH} ${RUNS} $@
-
-${REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd COVID.bib | ${REPDIR}
-	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
-
-REPS := $(addprefix ${REPDIR}/,$(subst -res.rds,.pdf,$(shell cat LMICargs.txt)))
-
-allrep: ${REPS}
-
-TESTREP := Uganda
-
-testreport.pdf: report.R ${DATADIR}/${TESTREP}-res.rds report-template.Rmd COVID.bib
-	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv $@
+#testreport.pdf: report.R ${DATADIR}/${TESTREP}-res.rds report-template.Rmd COVID.bib
+#	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv $@
 	
 
 #INTCOUNTRIES := Kenya Uganda Zimbabwe
