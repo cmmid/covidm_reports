@@ -509,13 +509,12 @@ summary_tsCplotter <- function(subdt, title, timing.title, y.axis.title, use.leg
 
 # Overview
 
-- We use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic 
-- Estimate predicted peak in incidence, hospital bed need, deaths
-- Under scnerios of "do nothing" and interventions a
+- We use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic.
+- Estimate predicted peak in incidence, hospital bed need, deaths.
+- We show scenarios of "do nothing" and interventions to decrease transmission.
+- Methods given at the end.
+- Reports will be updated frequently.
 
-The model is adapted to each country by applying the demography (age distribution in 5 year bands) of the country. We also use a mixing matrix approximated to each country either from calculated contact matrices or measured contact matrices. The reports will be updated by information on proposed interventions. Modelling methods and parameters are given at the end of the report.
-
-Please note this report is updated frequently as new information is included.
 
 ```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
 plotter <- function(pop) {
@@ -680,9 +679,9 @@ cumulative_totals <- list(
 )
 ```
 
-# Overall Results
+# Projected epidemics will no interventions
 
-The following series of plots show overall outcomes: incidence of cases, prevalence of hospitalised patients, incidence and cumulative number of deaths.
+The plots show: incidence of clincal cases (with symptoms), prevalence of hospitalised patients, incidence and cumulative number of deaths.
 
 The timing of the peak is very sensitive to when community transmission starts in a country, and what interventions are used to mitigate the epidemic. In the projected epidemic the median peak number of symptomatic cases across all model projections is `r peaks_median_numbers$cases_reported`, forecast to occur on `r peaks_dates_and_days_after$cases_reported` (Fig. \@ref(fig:tsoverall)A, E). The predicted peak in hospitalised cases occurs about `r dates_difference$cases_vs_icu`, with a median of `r peaks_median_numbers$nonicu_p` cases in ward and `r peaks_median_numbers$icu_p` in ICU`r peaks_dates$nonicu_p` (Fig. \@ref(fig:tsoverall)B-C, E). The peak daily number of deaths is predicted to follow about `r dates_difference$icu_vs_death`, with the median estimate of `r peaks_median_numbers$death_o` new deaths that day (Fig. \@ref(fig:tsoverall)D-E). Cumulative number of deaths is predicted to be `r cumulative_totals$death_o`. 
 
@@ -827,13 +826,13 @@ cumulative_median_45_59 <- cumulative_median_by_age$death_o %>%
   scales::number()
 ```
 
-## Results by Age Group
+## Unmitigated epidemic projections for each age group
 
-Each plot includes several stochastic timelines, and shows the average height and timing of peaks.
+The extra lines are because there is some stochasticity (randomness) in the model to show the uncertainty in the projections.
 
-The percentage of symptomatic cases in each age group is mostly in proportion to the age structure of the country (Fig. \@ref(fig:byage)), with `r under_15_symtomatic_percentage` being under the age of 15 and `r over_60_symtomatic_percentage` being aged 60 or over. However, the age distribution of hospitalised cases is inverted, with the predicted median number of hospitalisations of those aged 60 and over much higher than among those aged 45-59 (`r median_ward_45_59` versus `r median_ward_over_60` in ward and `r median_icu_over_60` versus `r median_icu_45_59` in ICU). This pattern in the upper age groups is maintained for the predicted median peak in the daily number of deaths (`r peaks_median_over_60` among those aged 60 and over versus `r peaks_median_45_59` among those aged 45-59) and cumulative number of deaths (`r cumulative_median_death_over_60` among those aged 60 and over versus `r cumulative_median_45_59` among those aged 45-59). This occurs because COVID-19 has been shown to cause more severe disease and more mortality in older people.
+The percentage of symptomatic cases in each age group is mostly in proportion to the age structure (Fig. \@ref(fig:byage)) (`r under_15_symtomatic_percentage` under age 15, and `r over_60_symtomatic_percentage` aged 60 or over). However, the age distribution of hospitalised cases is inverted, with the predicted median number of hospitalisations of those aged 60 and over much higher than among those aged 45-59 (`r median_ward_45_59` versus `r median_ward_over_60` in ward and `r median_icu_over_60` versus `r median_icu_45_59` in ICU). This pattern in the upper age groups is maintained for the predicted median peak in the daily number of deaths (`r peaks_median_over_60` among those aged 60 and over versus `r peaks_median_45_59` among those aged 45-59) and cumulative number of deaths (`r cumulative_median_death_over_60` among those aged 60 and over versus `r cumulative_median_45_59` among those aged 45-59). This occurs because COVID-19 has been shown to cause more severe disease and more mortality in older people.
 
-Generally, the number of hospitalisations and deaths increase with each increasing age band, although there seems little, if any, difference between those aged 15-29 and those aged 30-44 in this respect. In Fig. \@ref(fig:byage), we see that peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups.
+Peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups (Fig. \@ref(fig:byage)).
 
 ```{r byage, echo=FALSE, fig.height=8, fig.cap="Outcome Timeseries by Age"}
 tsplotter(subdyn)
@@ -857,9 +856,14 @@ suppressWarnings(output <- subdyn %>%
 kable(output, booktabs = TRUE, caption = "Summary of mean numbers for each compartment and age group.", label="summary")
 ```
 
+# The effect of interventions
+
+
+
 # Conclusions
 
-Based on the projections, there is likely to be a large number of cases and high demand for medical care. Preparedness activities are needed.
+Based on the projections, there is likely to be a large number of cases and high demand for medical care. 
+Preparedness activities are needed.
 
 # Methods, data and assumptions
 
@@ -867,7 +871,7 @@ We used the stochastic age-structured dynamic transmission model reported in [@d
 
 ## Dynamic transmission model 
 
-We analysed a stochastic compartmental model stratified into 5-year age bands, with individuals classified according to current disease status (Fig. \@ref(fig:modelpars))) and transmission between groups based on UK social mixing patterns [@daviesage2020;@mossong2008social, full details in Supplementary Information]. After infection with SARS-CoV-2 in the model, susceptible individuals pass through a latent period before becoming infectious, either with a preclinical and then clinical infection, or with a subclinical infection, before recovery or isolation. We refer to those infections causing few or no symptoms as subclinical. We assume older individuals are more likely to show clinical symptoms [@daviesage2020].
+We used a stochastic compartmental model stratified into 5-year age bands, with individuals classified according to current disease status (Fig. \@ref(fig:modelpars))) and transmission between groups based on social mixing patterns [@daviesage2020;@mossong2008social]. After infection with SARS-CoV-2 in the model, susceptible individuals pass through a latent period before becoming infectious, either with a preclinical and then clinical infection, or with a subclinical infection, before recovery or isolation. We refer to those infections causing few or no symptoms as subclinical. We assume older individuals are more likely to show clinical symptoms [@daviesage2020].
 
 ## Key model parameters 
 
