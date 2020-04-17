@@ -41,13 +41,15 @@ prev.expander <- data.table(expand.grid(
 ))
 
 full <- function(dt, scen_id) {
-  inc <- ref[inc.expander, on=.(run, age, compartment, t)]
+  inc <- dt[inc.expander, on=.(run, age, compartment, t)]
   inc[is.na(value), value := 0L]
-  prev <- ref[prev.expander, on=.(run, age, compartment, t)]
+  prev <- dt[prev.expander, on=.(run, age, compartment, t)]
   prev[is.na(value), value := 0L]
   tmp <- rbind(inc, prev)
   # make the all ages category
   tmp <- rbind(tmp, tmp[,.(value = sum(value), age = "all"),by=.(run, t, compartment)])
+  # make the all hospitalization category
+  tmp <- rbind(tmp, tmp[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp_p"),by=.(run, t, age)])
   rm(inc, prev)
   qtmp <- tmp[order(t),.(t, value = cumsum(value)), by=.(run, age, compartment)][,{
     qs <- quantile(value, probs = c(0.025,0.25,0.5,0.75,0.975))
@@ -185,9 +187,9 @@ for (ind in seq_along(simfns[-1])) {
   alls[[ind + 1]] <- full(raw.dt, scen_id)
 }
 
-peak.dt <- rbindlist(peaks)
-accs.dt <- rbindlist(accs)
-alls.dt <- rbindlist(alls)
+peak.dt <- setkey(rbindlist(peaks), scen_id, metric, compartment, age)
+accs.dt <- setkey(rbindlist(accs), scen_id, metric, compartment, age, t)
+alls.dt <- setkey(rbindlist(alls), scen_id, compartment, age, t)
 
 qsave(peak.dt, tail(.args, 1))
 qsave(accs.dt, gsub("peak", "accs", tail(.args, 1)))
