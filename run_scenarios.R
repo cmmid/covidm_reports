@@ -51,6 +51,7 @@ attach(scenarios[[scen]][s,])
 if (scen != 1){
   # should already have incidence set
   unmitigated <- readRDS(unmitigatedname)[compartment == "cases"]
+  unmitigated <- unmitigated[, .(value=sum(value)), by=c("run", "t", "compartment")]
 }
 
 #' set up paramaters
@@ -73,16 +74,52 @@ for(i in 1:nrow(run_options)){
   
   if (gen_socdist | (hirisk_prop_isolated > 0)) {
     iv = cm_iv_build(params)
+    
     #' general social distancing
     if(gen_socdist){
-      if(gen_socdist_start == "incidence"){
-        gen_socdist_startdate <- as.Date(params$date0) + unmitigated[run == i & incidence >= gen_socdist_schedule_filter_on_threshold][1,t]
+      
+      if(is.list(gen_socdist_start)){
+        gen_socdist_startdate <- sapply(
+          1:length(gen_socdist_start[[1]]),
+          function(x){
+            if(gen_socdist_start[[1]][x] == "incidence"){
+              threshold_time <- unmitigated[run == i & incidence >= gen_socdist_schedule_filter_on_threshold[[1]][x]][1,t]
+              if(is.na(threshold_time)){ threshold_time <- 1e6 }
+              return(as.character(as.Date(params$date0) + threshold_time))
+            } else {
+              return(0)
+            }
+          })
+      } else {
+        threshold_time <- unmitigated[run == i & incidence >= gen_socdist_schedule_filter_on_threshold][1,t]
+        if(is.na(threshold_time)){ threshold_time <- 1e6 }
+        gen_socdist_startdate <- as.Date(params$date0) + threshold_time
       }
-      gen_socdist_stopdate <- as.Date(params$date0) + gen_socdist_stop*30
+      
+      if(is.list(gen_socdist_stop)){
+        gen_socdist_stopdate <- as.Date(gen_socdist_startdate) + sapply(
+          1:length(gen_socdist_stop[[1]]),
+          function(x){ return(gen_socdist_stop[[1]][x]*round(365/12)) }
+        )
+      } else {
+        gen_socdist_stopdate <- as.Date(gen_socdist_startdate) + gen_socdist_stop*round(365/12) 
+      }
+      
+      gen_socdist_startdate <- as.Date(gen_socdist_startdate)
+      gen_socdist_stopdate <- as.Date(gen_socdist_stopdate)
+      
+      if(length(gen_socdist_startdate) > 1){
+        for(d in 2:length(gen_socdist_startdate)){
+          if(gen_socdist_startdate[d] <= gen_socdist_stopdate[d-1]){ 
+            gen_socdist_startdate[d] <- gen_socdist_stopdate[d-1]+1
+          }
+        } 
+      }
+      
       cm_iv_general_socdist(iv, gen_socdist_startdate, gen_socdist_stopdate, gen_socdist_contact)  
     }
     
-    #' check if we need to adjust travel patterns
+    #' shielding
     if(hirisk_prop_isolated > 0){
       #assume same risk high-risk to low-risk as low-risk to high-risk
       update_travel <- matrix(rep(hirisk_lorisk_contact, 4), 2)
@@ -95,9 +132,12 @@ for(i in 1:nrow(run_options)){
       
       #shielding
       if(hirisk_shield_start == "incidence"){
-        hirisk_shield_startdate <- as.Date(params$date0) + unmitigated[run == i & incidence > hirisk_shield_schedule_filter_on_threshold][1,t]
+        threshold_time <- unmitigated[run == i & incidence >= hirisk_shield_schedule_filter_on_threshold][1,t]
+        if(is.na(threshold_time)){ threshold_time <- 1e6 }
+        hirisk_shield_startdate <- as.Date(params$date0) + threshold_time
       }
-      hirisk_shield_stopdate <- as.Date(params$date0) + hirisk_shield_stop*30
+      
+      hirisk_shield_stopdate <- as.Date(hirisk_shield_startdate) + hirisk_shield_stop*round(365/12)
       
       iv[, travel := list(params$travel)]
       cm_iv_travel(iv, hirisk_shield_startdate, hirisk_shield_stopdate, list(update_travel))

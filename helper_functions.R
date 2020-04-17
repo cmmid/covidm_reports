@@ -40,8 +40,12 @@ cm_iv_travel <- function(iv, ymd_iv_first_day, ymd_iv_last_day, tf)
 #' @examples
 cm_iv_general_socdist <- function(iv, ymd_break_start, ymd_break_end, sf = c(0,0,0,0))
 {
-  for (i in 1:length(ymd_break_start)) {
-    cm_iv_contact(iv, ymd_break_start[i], ymd_break_end[i], sf[[i]]);
+  if(is.list(sf[[1]])){
+    for (i in 1:length(ymd_break_start)) {
+      cm_iv_contact(iv, ymd_break_start[i], ymd_break_end[i], sf[[1]][[i]]);
+    } 
+  } else {
+    cm_iv_contact(iv, ymd_break_start, ymd_break_end, sf[[1]]);
   }
 }
 
@@ -161,12 +165,58 @@ set_scenario_combinations <- function(combine_each=list(),individual_only=list()
   
   if( sum(scenario_options[,gen_socdist])>0 ){
     for(i in 1:nrow(scenario_options)){
-      scenario_options[i, "gen_socdist_contact"] <- list(c(
-        scenario_options[i, gen_socdist_house],
-        scenario_options[i, gen_socdist_school],
-        scenario_options[i, gen_socdist_work],
-        scenario_options[i, gen_socdist_other]
-      ))
+      if(is.list(scenario_options[i, gen_socdist_house])){
+        scenario_options[i, "gen_socdist_contact"] <- lapply(
+          1:length(scenario_options[i, gen_socdist_house]),
+          function(x){
+            return(list(c(
+              ifelse(
+                is.na(as.numeric(scenario_options[i, gen_socdist_house][[x]])),
+                scenario_options[i, get(paste0("gen_socdist_", scenario_options[i, gen_socdist_house]))][[x]],
+                scenario_options[i, gen_socdist_house][[x]]
+              ),
+              ifelse(
+                is.na(as.numeric(scenario_options[i, gen_socdist_school][[x]])),
+                scenario_options[i, get(paste0("gen_socdist_", scenario_options[i, gen_socdist_school]))][[x]],
+                scenario_options[i, gen_socdist_school][[x]]
+              ),
+              ifelse(
+                is.na(as.numeric(scenario_options[i, gen_socdist_work][[x]])),
+                scenario_options[i, get(paste0("gen_socdist_", scenario_options[i, gen_socdist_work]))][[x]],
+                scenario_options[i, gen_socdist_work][[x]]
+              ),
+              ifelse(
+                is.na(as.numeric(scenario_options[i, gen_socdist_other][[x]])),
+                scenario_options[i, get(paste0("gen_socdist_", scenario_options[i, gen_socdist_other]))][[x]],
+                scenario_options[i, gen_socdist_other][[x]]
+              )
+            )))
+          }
+        )
+      } else {
+        scenario_options[i, "gen_socdist_contact"] <- list(c(
+          ifelse(
+            is.na(as.numeric(scenario_options[i, gen_socdist_house])),
+            scenario_options[i, get(paste0("gen_socdist_", scenario_options[i, gen_socdist_house]))],
+            scenario_options[i, gen_socdist_house]
+          ),
+          ifelse(
+            is.na(as.numeric(scenario_options[i, gen_socdist_school])),
+            scenario_options[i, get(paste0("gen_socdist_", scenario_options[i, gen_socdist_school]))],
+            scenario_options[i, gen_socdist_school]
+          ),
+          ifelse(
+            is.na(as.numeric(scenario_options[i, gen_socdist_work])),
+            scenario_options[i, get(paste0("gen_socdist_", scenario_options[i, gen_socdist_work]))],
+            scenario_options[i, gen_socdist_work]
+          ),
+          ifelse(
+            is.na(as.numeric(scenario_options[i, gen_socdist_other])),
+            scenario_options[i, get(paste0("gen_socdist_", scenario_options[i, gen_socdist_other]))],
+            scenario_options[i, gen_socdist_other]
+          )
+        )) 
+      }
     }
   }
   
