@@ -509,7 +509,9 @@ summary_tsCplotter <- function(subdt, title, timing.title, y.axis.title, use.leg
 
 # Overview
 
-In this country-level report, we use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic and time to key events such as the predicted peaks in incidence of symptomatic cases and prevalence of hospitalised cases. We stratify hospitalised cases into general or critical hospitalisation. We also project deaths though time stratified by age using data on the expected age distribution of mortality.
+- We use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic 
+- Estimate predicted peak in incidence, hospital bed need, deaths
+- Under scnerios of "do nothing" and interventions a
 
 The model is adapted to each country by applying the demography (age distribution in 5 year bands) of the country. We also use a mixing matrix approximated to each country either from calculated contact matrices or measured contact matrices. The reports will be updated by information on proposed interventions. Modelling methods and parameters are given at the end of the report.
 
