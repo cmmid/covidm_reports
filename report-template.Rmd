@@ -70,32 +70,6 @@ alls.dt <- params$alls[scen_id %in% c(1,scens)]
 - Modelling methods and parameters are given at the end of the report.
 - Reports will be updated frequently as new information is included.
 
-```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
-plotter <- function(pop) {
-  p <- ggplot(pop) +
-    aes(x = age, y = pop / 1000) +
-    geom_col(fill = "#cc3366") +
-    coord_flip() +
-    labs(x = NULL, y = "Population (thousands)") +
-    theme_minimal()
-  return(p)
-}
-sp_contact_matrices <- function(mat, legpos = "right", is_analogy = params$is_analogy) {
-  mat <- Reduce(function(l, r) l + r, mat)
-  data <- data.table(reshape2::melt(mat))
-  names(data) <- c("From", "To", "Contacts")
-  ggplot(data) +
-    geom_raster(aes(x = To, y = From, fill = Contacts)) +
-    scale_fill_viridis_c() +
-    theme_bw() +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-      strip.background = element_rect(fill = "white", colour = "white"),
-      legend.position = legpos,
-    )
-}
-plot_grid(plotter(poppyra), sp_contact_matrices(params$contactmatrices), ncol = 2)
-```
 
 # Unmitigated COVID-19 Epidemic Trajectory
 
@@ -288,6 +262,33 @@ We used the stochastic age-structured dynamic transmission model reported in [@d
 ## Dynamic transmission model 
 
 We used a stochastic compartmental model stratified into 5-year age bands, with individuals classified according to current disease status (Fig. \@ref(fig:modelpars))) and transmission between groups based on social mixing patterns [@daviesage2020;@mossong2008social]. After infection with SARS-CoV-2 in the model, susceptible individuals pass through a latent period before becoming infectious, either with a preclinical and then clinical infection, or with a subclinical infection, before recovery or isolation. We refer to those infections causing few or no symptoms as subclinical. We assume older individuals are more likely to show clinical symptoms [@daviesage2020].
+
+```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
+plotter <- function(pop) {
+  p <- ggplot(pop) +
+    aes(x = age, y = pop / 1000) +
+    geom_col(fill = "#cc3366") +
+    coord_flip() +
+    labs(x = NULL, y = "Population (thousands)") +
+    theme_minimal()
+  return(p)
+}
+sp_contact_matrices <- function(mat, legpos = "right", is_analogy = params$is_analogy) {
+  mat <- Reduce(function(l, r) l + r, mat)
+  data <- data.table(reshape2::melt(mat))
+  names(data) <- c("From", "To", "Contacts")
+  ggplot(data) +
+    geom_raster(aes(x = To, y = From, fill = Contacts)) +
+    scale_fill_viridis_c() +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+      strip.background = element_rect(fill = "white", colour = "white"),
+      legend.position = legpos,
+    )
+}
+plot_grid(plotter(poppyra), sp_contact_matrices(params$contactmatrices), ncol = 2)
+```
 
 ## Key model parameters 
 
