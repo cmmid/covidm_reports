@@ -516,33 +516,6 @@ summary_tsCplotter <- function(subdt, title, timing.title, y.axis.title, use.leg
 - Reports will be updated frequently.
 
 
-```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
-plotter <- function(pop) {
-  p <- ggplot(pop) +
-    aes(x = age, y = pop / 1000) +
-    geom_col(fill = "#cc3366") +
-    coord_flip() +
-    labs(x = NULL, y = "Population (thousands)") +
-    theme_minimal()
-  return(p)
-}
-sp_contact_matrices <- function(mat, legpos = "right", is_analogy = params$is_analogy) {
-  mat <- Reduce(function(l, r) l + r, mat)
-  data <- data.table(reshape2::melt(mat))
-  names(data) <- c("From", "To", "Contacts")
-  ggplot(data) +
-    geom_raster(aes(x = To, y = From, fill = Contacts)) +
-    scale_fill_viridis_c() +
-    theme_bw() +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-      strip.background = element_rect(fill = "white", colour = "white"),
-      legend.position = legpos,
-    )
-}
-plot_grid(plotter(poppyra), sp_contact_matrices(contactmatrices), ncol = 2)
-```
-
 ```{r echo=FALSE, warning=FALSE}
 
 calculate_max_peak <- function(subdt) {
@@ -679,7 +652,7 @@ cumulative_totals <- list(
 )
 ```
 
-# Projected epidemics will no interventions
+# Projected epidemics with no interventions
 
 The plots show: incidence of clincal cases (with symptoms), prevalence of hospitalised patients, incidence and cumulative number of deaths.
 
@@ -914,6 +887,34 @@ parameter_set_df %>%
 ## Key parameters of the transmission model 
 
 We used a serial interval of 6.5 days based on published studies [@li2020early;@bi2020epidemiology;@nishiura2020serial], and assumed that the length of the preclinical period was 30% of the total period of clinical infectiousness [@liu2020contribution]. From this, we fixed the mean of the latent period to 4 days, the mean duration of preclinical infectiousness to 1.5 days, and the mean duration of clinical infectiousness to 3.5 days. The basic reproduction number $R_0$ was estimated by synthesizing the results of a literature review (Fig. S1). For each reported value of the basic reproduction number, we matched a flexible PERT distribution (a shifted beta distribution parameterised by minimum, maximum, and mode) to the median and confidence interval reported in each study. We sampled from the resulting distributions, weighting each study equally, to obtain estimates of $R_0$ for our simulations. The age-specific clinical fraction, $y_i$, was adopted from an estimate based on case data from 6 countries [@daviesage2020], and the relative infectiousness of subclinical cases, $f$, was assumed to be 50% relative to clinical cases, as we assumed in a previous study [@daviesage2020].
+
+```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
+plotter <- function(pop) {
+  p <- ggplot(pop) +
+    aes(x = age, y = pop / 1000) +
+    geom_col(fill = "#cc3366") +
+    coord_flip() +
+    labs(x = NULL, y = "Population (thousands)") +
+    theme_minimal()
+  return(p)
+}
+sp_contact_matrices <- function(mat, legpos = "right", is_analogy = params$is_analogy) {
+  mat <- Reduce(function(l, r) l + r, mat)
+  data <- data.table(reshape2::melt(mat))
+  names(data) <- c("From", "To", "Contacts")
+  ggplot(data) +
+    geom_raster(aes(x = To, y = From, fill = Contacts)) +
+    scale_fill_viridis_c() +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+      strip.background = element_rect(fill = "white", colour = "white"),
+      legend.position = legpos,
+    )
+}
+plot_grid(plotter(poppyra), sp_contact_matrices(contactmatrices), ncol = 2)
+```
+
 
 ## Hospital burden estimation
 
