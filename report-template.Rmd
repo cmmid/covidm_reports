@@ -69,8 +69,7 @@ alls.dt <- params$alls[scen_id %in% c(1,scens)]
 - We show scenarios of "do nothing" and interventions to decrease transmission.
 - Methods given at the end.
 - Reports will be updated frequently.
-
-The model is adapted to each country by applying the demography (age distribution in 5 year bands) of the country. We also use a mixing matrix approximated to each country either from calculated contact matrices or measured contact matrices. The reports will be updated by information on proposed interventions. Modelling methods and parameters are given at the end of the report.
+- Modelling methods and parameters are given at the end of the report.
 
 Please note this report is updated frequently as new information is included.
 
@@ -105,7 +104,7 @@ plot_grid(plotter(poppyra), sp_contact_matrices(params$contactmatrices), ncol = 
 
 The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable).
 
-```{r tsunmit, fig.height=4, fig.cap="Unmitigated time series."}
+```{r tsunmit, fig.height=4, fig.cap="Epidemics without intervention. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). All ages is given, and separated by age group."}
 unmit.q <- meltquantiles(params$alls[scen_id == 1])
 unmit.q$age <- factor(
   unmit.q$age, levels = levels(unmit.q$age)[c(6,1:5)],
@@ -202,9 +201,9 @@ collapse_rows(kable(tabpeak, caption="Peak timing and values for various outcome
 
 # Intervention Scenarios
 
-The panels in Fig. \@ref(fig:tsintervention) compare unmitigated and intervention aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable).
+The panels in Fig. \@ref(fig:tsintervention) compare epidemics without intervention with 5 different potential interventions. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable).
 
-```{r tsintervention, fig.height=4, fig.cap="Intervention time series."}
+```{r tsintervention, fig.height=4, fig.cap="Epidemics with interventions for all ages. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care)."}
 pks <- alls.dt[age=="all",{
   res <- apply(.SD, 2, max)
   names(res) <- colnames(.SD)
