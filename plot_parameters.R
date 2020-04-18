@@ -1,11 +1,11 @@
 #' Visualise the distributions of parameter sets
-#'
-#'
-
 
 library(tidyverse)
 library(cowplot)
 
+.args <- if (interactive()) c(
+  "plotpars.rda"
+) else commandArgs(trailingOnly = TRUE)
 
 #' @examples
 #'
@@ -175,3 +175,5 @@ plot_delay_tot <- function() {
     ylab("Probability density") +
     xlab(expression(d[tot] ~ value)))
 }
+
+save(list=ls(), file=tail(.args, 1))

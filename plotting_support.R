@@ -175,6 +175,15 @@ scale_color_pop <- function(
   ...
 )
 
+age.annotate <- function(l) sprintf("%s\n%s", l, ifelse(l=="all","ages","years"))
+
+stagger <- function(l) {
+  l[c(seq(1,length(l),by=2), seq(2,length(l),by=2))] <- c(
+    sprintf("%s\n", l[seq(1, length(l), by=2)]),
+    sprintf("\n%s", l[seq(2, length(l), by=2)])
+  )
+  l
+}
 
 save(list = ls(), file = tail(.args, 1))
 

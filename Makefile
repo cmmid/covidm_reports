@@ -77,7 +77,10 @@ plotfuns.rda: plotting_support.R
 intplots.rda: intervention_plots.R $(patsubst %,${INTINPUTDIR}/%.rds,scenarios scenarios_overview)
 	${R}
 
-PLOTREF := plotfuns.rda intplots.rda
+plotpars.rda: plot_parameters.R
+	${R}
+
+PLOTREF := plotfuns.rda intplots.rda plotpars.rda
 
 ### TESTING TARGETS
 
@@ -86,6 +89,16 @@ TESTCTY := caboverde
 -include testing.makefile
 
 #allres: $(addprefix ${DATADIR}/,$(shell cat LMICargs.txt))
+
+${REPDIR}/%/report.pdf: report.R ${HPCDIR}/%/001.qs ${HPCDIR}/%/alls.qs \
+${HPCDIR}/%/accs.qs ${HPCDIR}/%/peak.qs \
+report-template.Rmd ${PLOTREF} COVID.bib
+	mkdir -p $(@D)
+	Rscript $(filter-out %.bib,$^) \
+	${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv \
+	$@
+
+testrep: ${REPDIR}/caboverde/report.pdf
 
 #${REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd COVID.bib | ${REPDIR}
 #	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@

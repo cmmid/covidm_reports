@@ -8,10 +8,13 @@ output:
     citation_package: natbib
 params:
   location: Default
-  dynamics: "`r data.frame()`"
+  unmitigated: "`r data.frame()`"
+  peaks: "`r data.frame()`"
+  accs: "`r data.frame()`"
+  alls: "`r data.frame()`"
   contactmatrices: "`r matrix()`"
   poppyra: "`r integer()`"
-  day0: "2020-04-01"
+  plothelpers: "`r character()`"
   is_analogy: "`r NA_character_`"
 title: "`r sprintf('Modelling projections for COVID-19 epidemic in %s', params$location)`"
 bibliography: COVID.bib
@@ -29,7 +32,13 @@ header-includes:
   - \usepackage[normalem]{ulem}
   - \usepackage{makecell}
   - \usepackage[round]{natbib}
+editor_options: 
+  chunk_output_type: console
 ---
+```{r echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
+```
+
 ```{r echo=FALSE, include=FALSE}
 suppressPackageStartupMessages({
   require(data.table)
@@ -40,471 +49,17 @@ suppressPackageStartupMessages({
   require(tidyverse)
   require(RColorBrewer)
   require(kableExtra)
-  source("plot_parameters.R")
 })
 
-reduce_ages <- function(dt) {
-  fctr <- function(i, lvls = c("<14", "15-29", "30-44", "45-59", "60+")) {
-    factor(
-      lvls[i],
-      levels = lvls, ordered = T
-    )
-  }
-  dt[between(as.integer(group), 1, 3), age := fctr(1)]
-  dt[between(as.integer(group), 4, 6), age := fctr(2)]
-  dt[between(as.integer(group), 7, 9), age := fctr(3)]
-  dt[between(as.integer(group), 10, 12), age := fctr(4)]
-  dt[as.integer(group) >= 13, age := fctr(5)]
-}
-
-keepruns <- dynamics[compartment == "cases_reported", .(any = sum(value) > 1), by = run][any == TRUE, run]
-refdays <- dynamics[compartment == "cases"][run %in% keepruns, .(firstcase = t[which.max(value > 0)]), by = run]
-
-# subset
-subdyn <- dynamics[refdays, on = .(run)][t >= firstcase]
-subdyn[, date := t - firstcase]
-
-refday <- 0
-reflim <- 90L
-ulim <- ceiling(subdyn[t >= reflim][rev(order(t))][compartment == "cases", if (any(value > 0)) t[which.max(value > 0)] else reflim, by = run][, max(V1)] / 30) * 30
-
-reduce_ages(subdyn)
-reduce_ages(poppyra)
-
-poppyra[, per_by_group := pop / sum(pop)]
-poppyra[, per_by_age := sum(pop), by = age]
-poppyra[, per_by_age := per_by_age / sum(pop)]
-# only consider simulations with non-zero reported cases
-
-
-# all simulations get aligned by first reported case on day0
-
-if (!is.na(params$day0)) {
-  dtscale <- scale_x_date("Date", expand = c(0, 0))
-} else {
-  dtscale <- scale_x_continuous("Days from Initial Infection Seeding (50 infections)", expand = c(0, 0))
-}
-
-col.lbls <- poppyra[, sprintf("%s (%s%%)", age, round(unique(per_by_age) * 100)), by = age]$V1
-
-scale_color_pop <- function(
-                            name = "Age Group\n(% of Pop.)",
-                            labels = col.lbls,
-                            guide = guide_legend(override.aes = list(alpha = 1, size = 2)),
-                            ...) {
-  scale_color_discrete(
-    name = name,
-    labels = labels,
-    guide = guide
-  )
-}
-
-thm_main <- theme_minimal(base_size = 8) +
-  theme(
-    strip.text.y = element_blank(),
-    plot.margin = margin(t = 1, l = 2, unit = "line"),
-    panel.spacing = unit(x = 0.5, unit = "line")
-  )
-thm_bottom <- theme_minimal(base_size = 8) + theme(
-  axis.title.y = element_blank(),
-  axis.text.y = element_blank(),
-  panel.grid.major.y = element_blank(),
-  strip.text.y = element_blank(),
-  plot.margin = margin(t = 1, l = 2, unit = "line")
-)
-
-thm_right <- theme_minimal(base_size = 8) + theme(
-  axis.text = element_blank(),
-  axis.title = element_blank(),
-  axis.title.y = element_blank(),
-  axis.title.y.right = element_blank(),
-  axis.text.y.right = element_blank(),
-  strip.text.y = element_blank(),
-  panel.grid.major.x = element_blank()
-)
-
-compartments <- c("cases_reported", "nonicu_p", "icu_p", "death_o")
-
-compartment_names <- c(
-  `cases_reported` = "Symptomatic Cases",
-  `nonicu_p` = "Hospitalised Cases (Ward)",
-  `icu_p` = "Hospitalised Cases (ICU)",
-  `death_o` = "Deaths"
-)
-
-calculate_reference_table <- function(subdt,
-                                      by = c("run", "date", "population", "compartment")) {
-  return(subdt %>% filter(date >= refday, date <= refday + ulim) %>%
-    group_by_at(vars(one_of(by))) %>%
-    summarise(value = sum(value)) %>% ungroup())
-  # return(subdt[between(date, refday, refday+ulim)][,
-  #   .(value = sum(value)),
-  #   keyby = .(run, date, population, compartment)
-  # ])
-}
-
-calculate_peaks <- function(refdt, by = c("run", "population", "compartment")) {
-  return(refdt %>% group_by_at(vars(one_of(by))) %>%
-    top_n(n = 1, wt = value) %>%
-    summarise(
-      peakdate = date[1],
-      peak = max(value)
-    ) %>% ungroup())
-  # return(refdt[,
-  #   .(peakdate = date[which.max(value)], peak=max(value)),
-  #   by=.(run, population, compartment)
-  # ])
-}
-
-calculate_timings <- function(peaks.dt, by = c("population", "compartment")) {
-  return(peaks.dt %>% group_by_at(vars(one_of(by))) %>%
-    summarise(
-      lo.lo = quantile(peakdate, 0.025),
-      lo = quantile(peakdate, 0.25),
-      md = quantile(peakdate, 0.5),
-      hi = quantile(peakdate, 0.75),
-      hi.hi = quantile(peakdate, 0.975),
-      mx = quantile(peakdate, 1.0),
-    ) %>% ungroup())
-  # return(peaks.dt[peak != 0, {
-  #   qs <- quantile(peakdate, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-  #   names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi")
-  #   as.list(qs)
-  # }, by=.(population, compartment)
-  # ])
-}
-
-calculate_peak_sizes <- function(peaks.dt, by = c("population", "compartment")) {
-  return(peaks.dt %>% group_by_at(vars(one_of(by))) %>%
-    summarise(
-      lo.lo = quantile(peak, 0.025),
-      lo = quantile(peak, 0.25),
-      md = quantile(peak, 0.5),
-      hi = quantile(peak, 0.75),
-      hi.hi = quantile(peak, 0.975),
-      mx = quantile(peak, 1.0)
-    ) %>% ungroup())
-  # return(peaks.dt[peak != 0,{
-  #   qs <- quantile(peak, probs = c(0.025, 0.25, 0.5, 0.75, 0.975, 1.0))
-  #   names(qs) <- c("lo.lo", "lo", "md", "hi", "hi.hi","mx")
-  #   as.list(qs)
-  # }, by=.(population, compartment)
-  # ])
-}
-
-calculate_cumulative_median_values <- function(refdt, by = c("compartment")) {
-  return(refdt %>%
-    group_by_at(vars(one_of(c(by, "run")))) %>%
-    # group_by(run) %>%
-    arrange(date) %>%
-    mutate(cum_value = cumsum(value)) %>%
-    group_by_at(vars(one_of(c(by, "date")))) %>%
-    # group_by(date) %>%
-    summarise(median_cum_value = median(cum_value)) %>%
-    mutate(median_value = c(median_cum_value[1], diff(median_cum_value))) %>%
-    ungroup() %>%
-    mutate(compartment = factor(compartment, levels = compartments)))
-}
-
-summary_tsplotter <- function(subdt, title = "Case Numbers", timing.title = "E) Peak Timing",
-                              pop = poppyra, x.main.title = "Number of Cases", use.legend = TRUE) {
-  # First calculate all the data
-  refdt <- calculate_reference_table(subdt %>% filter(compartment %in% compartments))
-
-  peaks.dt <- calculate_peaks(refdt)
-  timing.dt <- calculate_timings(peaks.dt)
-  size.dt <- calculate_peak_sizes(peaks.dt)
-
-  if (!is.na(params$day0)) {
-    start_date <- as.Date(params$day0)
-    timing.dt <- timing.dt %>%
-      mutate_if(is.numeric, function(x) {
-        start_date + x
-      })
-    refdt <- refdt %>%
-      mutate(date = start_date + date)
-    peaks.dt <- peaks.dt %>%
-      mutate(peakdate = start_date + peakdate)
-    timing_limits <- c(start_date, start_date + ulim)
-    timing_scale <- scale_x_date("Date", date_breaks = "1 month", date_labels = "%b", expand = c(0, 0))
-    timing_scale_null <- scale_x_date(NULL, date_breaks = "1 month", labels = NULL, expand = c(0, 0))
-  } else {
-    timing_limits <- c(refday, refday + ulim)
-    timing_scale <- dtscale
-    timing_scale_null <- dtscale
-  }
-
-  # Calculate the median values
-  cumulative_median_values <- calculate_cumulative_median_values(refdt)
-
-
-  # Generate the plots
-  p <- refdt %>%
-    mutate(compartment = factor(compartment, levels = compartments)) %>%
-    group_by(compartment, date) %>%
-    summarise(
-      mean_value = mean(value),
-      std_value = sd(value),
-      min_value = min(value),
-      max_value = max(value)
-    ) %>%
-    ggplot(aes(group = compartment, fill = compartment)) +
-    labs(subtitle = title) +
-    geom_ribbon(aes(
-      x = date,
-      ymin = min_value,
-      ymax = max_value, colour = compartment
-    ),
-    alpha = 0.3, colour = NA
-    ) +
-    geom_text(
-      data = refdt %>%
-        group_by(compartment) %>%
-        summarise(max_y = 0.5 * max(value)) %>%
-        mutate(compartment = factor(compartment, levels = compartments)) %>%
-        arrange(compartment) %>%
-        mutate(l = letters[1:n()] %>% toupper()),
-      aes(
-        x = min(timing_limits) - 10,
-        y = max_y,
-        label = l
-      ), inherit.aes = FALSE
-    ) +
-    geom_hline(
-      data = peaks.dt %>% group_by(compartment) %>% summarise(mean_peak = mean(peak)),
-      aes(yintercept = mean_peak, colour = compartment), linetype = "dashed"
-    ) +
-    geom_line(data = cumulative_median_values, aes(x = date, y = median_value, colour = compartment)) +
-    facet_grid(compartment ~ ., scales = "free_y", labeller = as_labeller(compartment_names)) +
-    scale_colour_manual("",
-      values = brewer.pal(n = 4, name = "Set2"),
-      breaks = compartments, labels = compartment_names
-    ) +
-    scale_fill_manual("",
-      values = brewer.pal(n = 4, name = "Set2"),
-      breaks = compartments, labels = compartment_names
-    ) +
-    scale_y_continuous(x.main.title, labels = scales::label_number_auto()) +
-    coord_cartesian(xlim = timing_limits, expand = FALSE, clip = "off") +
-    timing_scale_null +
-    thm_main
-
-  legend <- get_legend(p)
-  ptiming <- peaks.dt %>%
-    ggplot() +
-    labs(subtitle = timing.title) +
-    geom_violin(aes(
-      x = peakdate, y = factor(compartment, levels = rev(compartments)),
-      colour = compartment, fill = compartment, group = compartment
-    ),
-    alpha = 0.4, position = position_identity()
-    ) +
-    scale_colour_manual("",
-      values = brewer.pal(n = 4, name = "Set2"),
-      breaks = compartments, labels = compartment_names
-    ) +
-    scale_fill_manual("",
-      values = brewer.pal(n = 4, name = "Set2"),
-      breaks = compartments, labels = compartment_names
-    ) +
-    timing_scale +
-    coord_cartesian(xlim = timing_limits, expand = FALSE, clip = "off") +
-    theme_minimal() +
-    geom_text(
-      data = peaks.dt %>%
-        ungroup() %>%
-        filter(peakdate == min(peakdate)) %>%
-        head(1),
-      aes(
-        x = min(timing_limits) - 10,
-        y = "icu_p",
-        label = toupper(letters[length(unique(peaks.dt$compartment)) + 1])
-      ),
-      inherit.aes = FALSE
-    ) +
-    thm_bottom
-  p2 <- plot_grid(
-    p + no_legend(),
-    ptiming + no_legend(),
-    nrow = 2, ncol = 1,
-    # labels = c(title, timing.title),
-    hjust = 0,
-    label_size = 8,
-    rel_heights = c(3, 0.5),
-    align = "hv",
-    axis = "l"
-  )
-  if (use.legend) {
-    return(
-      plot_grid(p2, legend, nrow = 1, ncol = 2, rel_widths = c(4, 1))
-    )
-  } else {
-    return(p2)
+for (ph in params$plothelpers) {
+  if (grepl("rda$", ph)) {
+    load(ph)
+  } else if (grepl("R$", ph)) {
+    source(ph)
   }
 }
 
-tsplotter <- function(subdt,
-                      title = NULL,
-                      timing.title = "Peak Timing",
-                      pop = poppyra, legend.position = "bottom") {
-  refdt <- calculate_reference_table(subdt %>% filter(compartment %in% compartments),
-    by = c("run", "date", "population", "compartment", "age")
-  )
-
-  peaks.dt <- calculate_peaks(refdt, by = c("run", "age", "population", "compartment"))
-  timing.dt <- calculate_timings(peaks.dt, by = c("age", "population", "compartment"))
-  size.dt <- calculate_peak_sizes(peaks.dt, by = c("age", "population", "compartment"))
-  if (!is.na(params$day0)) {
-    start_date <- as.Date(params$day0)
-    timing.dt <- timing.dt %>%
-      mutate_if(is.numeric, function(x) {
-        start_date + x
-      })
-    refdt <- refdt %>%
-      mutate(date = start_date + date)
-    peaks.dt <- peaks.dt %>%
-      mutate(peakdate = start_date + peakdate)
-    timing_limits <- c(start_date, start_date + ulim)
-    timing_scale <- scale_x_date("Date", date_breaks = "1 month", date_labels = "%b", expand = c(0, 0))
-    timing_scale_null <- scale_x_date("", date_breaks = "1 month", labels = NULL, expand = c(0, 0))
-  } else {
-    timing_limits <- c(refday, refday + ulim)
-    timing_scale <- dtscale
-    timing_scale_null <- dtscale
-  }
-
-  cumulative_median_values <- calculate_cumulative_median_values(refdt, by = c("compartment", "age"))
-  plot_list <- list()
-  i <- 1
-  for (c in names(compartment_names))
-  {
-    if (!(c %in% refdt$compartment)) {
-      next()
-    }
-    y_axis_name <- compartment_names[[c]]
-    if (is.null(title)) {
-      title_1 <- paste(toupper(letters[i]), "-", y_axis_name)
-    } else {
-      title_1 <- title[i]
-    }
-    # Generate the plots
-    p <- refdt %>%
-      filter(compartment == c) %>%
-      mutate(compartment = factor(compartment, levels = compartments)) %>%
-      group_by(compartment, date, age) %>%
-      summarise(
-        mean_value = mean(value),
-        std_value = sd(value),
-        min_value = min(value),
-        max_value = max(value)
-      ) %>%
-      ggplot(aes(group = age, fill = age)) +
-      labs(title = title_1) +
-      geom_ribbon(aes(
-        x = date,
-        ymin = min_value,
-        ymax = max_value,
-        colour = age
-      ),
-      alpha = 0.3, colour = NA
-      ) +
-      geom_hline(
-        data = peaks.dt %>%
-          filter(compartment == c) %>%
-          group_by(compartment, age) %>% summarise(mean_peak = mean(peak)),
-        aes(yintercept = mean_peak, colour = age), linetype = "dashed"
-      ) +
-      geom_line(
-        data = cumulative_median_values %>%
-          filter(compartment == c),
-        aes(x = date, y = median_value, colour = age)
-      ) +
-      # facet_grid(compartment ~ ., scales = "free_y", labeller = as_labeller(compartment_names)) +
-      scale_colour_brewer("Age", palette = "Dark2") +
-      scale_fill_brewer("Age", palette = "Dark2") +
-      # scale_fill_manual("", values=brewer.pal(n=4, name="Dark2"),
-      # breaks=compartments, labels = compartment_names) +
-      scale_y_continuous(y_axis_name, labels = scales::label_number_auto()) +
-      coord_cartesian(xlim = timing_limits, expand = FALSE, clip = "off") +
-      timing_scale_null +
-      thm_main
-    legend <- get_legend(p + theme(legend.position = legend.position))
-
-    ptiming <- peaks.dt %>%
-      filter(compartment == c) %>%
-      ggplot() +
-      labs(subtitle = timing.title) +
-      geom_violin(aes(
-        x = peakdate, y = age,
-        colour = age, fill = age, group = age
-      ),
-      alpha = 0.4, position = position_identity()
-      ) +
-      scale_colour_brewer("Age", palette = "Dark2") +
-      scale_fill_brewer("Age", palette = "Dark2") +
-      timing_scale +
-      coord_cartesian(xlim = timing_limits, expand = FALSE, clip = "off") +
-      theme_minimal() +
-      thm_bottom
-
-    p_temp <- plot_grid(
-      p + no_legend(),
-      ptiming + no_legend(),
-      NULL,
-      nrow = 2, ncol = 1,
-      # rel_widths = c(3, 1),
-      rel_heights = c(3, 2),
-      align = "hv"
-    )
-    plot_list[[i]] <- p_temp
-    i <- i + 1
-  }
-  if (length(plot_list) == 4) {
-    p_combined <- plot_grid(plot_list[[1]],
-      plot_list[[2]],
-      plot_list[[3]],
-      plot_list[[4]],
-      nrow = 2, ncol = 2, align = "hv"
-    )
-  } else {
-    p_combined <- plot_list[[1]]
-  }
-  if (legend.position == "bottom") {
-    p_out <- plot_grid(p_combined,
-      legend,
-      nrow = 2, ncol = 1,
-      rel_heights = c(5, 1)
-    )
-  } else {
-    p_out <- plot_grid(p_combined,
-      legend,
-      nrow = 1, ncol = 2,
-      rel_widths = c(4, 1)
-    )
-  }
-
-  return(p_out)
-}
-
-tsCplotter <- function(subdt, title, timing.title, legend.position) {
-  tsplotter(subdt[between(date, refday, refday + ulim)][,
-    .(value = sum(value)),
-    keyby = .(run, date, population, compartment, age)
-  ][,
-    .(value = cumsum(value), date),
-    keyby = .(run, population, compartment, age)
-  ], title = title, timing.title = timing.title, legend.position = legend.position)
-}
-
-summary_tsCplotter <- function(subdt, title, timing.title, y.axis.title, use.legend) {
-  summary_tsplotter(subdt[between(date, refday, refday + ulim)][,
-    .(value = sum(value)),
-    keyby = .(run, date, population, compartment, age)
-  ][,
-    .(value = cumsum(value), date),
-    keyby = .(run, population, compartment, age)
-  ], title, timing.title, y.axis.title, use.legend = use.legend)
-}
+alls.dt <- params$alls[scen_id %in% c(1,scens)]
 ```
 
 # Overview
@@ -515,323 +70,215 @@ summary_tsCplotter <- function(subdt, title, timing.title, y.axis.title, use.leg
 - Methods given at the end.
 - Reports will be updated frequently.
 
+The model is adapted to each country by applying the demography (age distribution in 5 year bands) of the country. We also use a mixing matrix approximated to each country either from calculated contact matrices or measured contact matrices. The reports will be updated by information on proposed interventions. Modelling methods and parameters are given at the end of the report.
 
-```{r echo=FALSE, warning=FALSE}
+Please note this report is updated frequently as new information is included.
 
-calculate_max_peak <- function(subdt) {
-  if (!is.na(params$day0)) {
-    refdt <- calculate_reference_table(subdt)
-    peaks.dt <- calculate_peaks(refdt)
-    timing.dt <- calculate_timings(peaks.dt)
-    start_date <- as.Date(params$day0)
-    return(paste0(" on ", format(start_date + timing.dt$md[1], "%d/%m/%Y"), " to ", format(start_date + timing.dt$hi[1], "%d/%m/%Y")))
-  } else {
-    return("")
-  }
+```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
+plotter <- function(pop) {
+  p <- ggplot(pop) +
+    aes(x = age, y = pop / 1000) +
+    geom_col(fill = "#cc3366") +
+    coord_flip() +
+    labs(x = NULL, y = "Population (thousands)") +
+    theme_minimal()
+  return(p)
 }
-calculate_max_peak_and_days <- function(subdt) {
-  refdt <- calculate_reference_table(subdt)
-
-  peaks.dt <- calculate_peaks(refdt)
-  timing.dt <- calculate_timings(peaks.dt)
-  if (!is.na(params$day0)) {
-    start_date <- as.Date(params$day0)
-    return(paste0(
-      format(start_date + timing.dt$md[1], "%d/%m/%Y"), " to ", format(start_date + timing.dt$hi[1], "%d/%m/%Y"),
-      ", which is ", timing.dt$md[1], " to ", timing.dt$hi[1], " days after the first reported case"
-    ))
-  } else {
-    return(paste0(timing.dt$md[1], " to ", timing.dt$hi[1], " days after the first reported case"))
-  }
+sp_contact_matrices <- function(mat, legpos = "right", is_analogy = params$is_analogy) {
+  mat <- Reduce(function(l, r) l + r, mat)
+  data <- data.table(reshape2::melt(mat))
+  names(data) <- c("From", "To", "Contacts")
+  ggplot(data) +
+    geom_raster(aes(x = To, y = From, fill = Contacts)) +
+    scale_fill_viridis_c() +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+      strip.background = element_rect(fill = "white", colour = "white"),
+      legend.position = legpos,
+    )
 }
+plot_grid(plotter(poppyra), sp_contact_matrices(params$contactmatrices), ncol = 2)
+```
 
-calculate_peak_number_median <- function(subdt) {
-  refdt <- calculate_reference_table(subdt)
+# Unmitigated COVID-19 Epidemic Trajectory
 
-  peaks.dt <- calculate_peaks(refdt)
-  q <- quantile(peaks.dt$peak, probs = c(0.25, 0.75, 0.025, 0.975))
-  return(paste0(
-    scales::number(q[1]), " - ",
-    scales::number(q[2]), " (",
-    scales::number(q[3]), " - ",
-    scales::number(q[4]), ", 95% CI)"
-  ))
-}
+The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable).
 
-#' Calculates the date that the number of *value* hits 99% of the maximum.
-calculate_cumulative_total <- function(subdt) {
-  ds <- subdt %>%
-    group_by(run, date) %>%
-    summarise(total_value = sum(value)) %>%
-    arrange(run, date) %>%
-    group_by(run) %>%
-    mutate(cum_value = cumsum(total_value)) %>%
-    group_by(run) %>%
-    mutate(max_value = 0.99 * max(cum_value)) %>%
-    filter(max_value <= cum_value) %>%
-    top_n(n = 1, wt = desc(date)) %>%
-    ungroup()
-
-  q_dates <- format(quantile(ds %>%
-    select(date) %>%
-    pull(),
-  probs = c(0.25, 0.75, 0.025, 0.975)
-  ) + as.Date(params$day0), "%d/%m/%Y")
-  q_max_value <- round(quantile(ds %>%
-    select(max_value) %>%
-    pull(), probs = c(0.25, 0.75, 0.025, 0.975)))
-  q_days <- quantile(ds %>%
-    select(date) %>%
-    pull(), probs = c(0.25, 0.75, 0.025, 0.975))
-  return(paste0(
-    q_max_value[1], " - ", q_max_value[2], " (", q_max_value[3], " - ", q_max_value[4], ", 95% CI)",
-    ifelse(is.na(q_dates[1]), "", paste0(" occuring on ", q_dates[1], " - ", q_dates[2], " (", q_dates[3], " - ", q_dates[4], ", 95% CI)")),
-    ", approximately ", q_days[1], " - ", q_days[2],
-    " days after the first reported case (", q_days[3], " - ", q_days[4], " days, 95% CI)"
-  ))
-}
-
-calculate_dates_difference <- function(subdt1, subdt2) {
-  refdt1 <- calculate_reference_table(subdt1)
-  refdt2 <- calculate_reference_table(subdt2)
-  compartment1 <- refdt1$compartment[1]
-  peaks.dt <- calculate_peaks(refdt1) %>%
-    pivot_wider(id_cols = c(run, population, peakdate), names_from = compartment, values_from = peak) %>%
-    rename(peakdate1 = peakdate) %>%
-    full_join(calculate_peaks(refdt2) %>%
-      pivot_wider(
-        id_cols = c(run, population, peakdate),
-        names_from = compartment, values_from = peak
-      ) %>%
-      rename(peakdate2 = peakdate), by = c("run", "population")) %>%
-    mutate(peakdate = peakdate2 - peakdate1)
-
-  days_difference <- calculate_timings(peaks.dt, by = c("population"))
-  if (days_difference$md - days_difference$lo.lo > 2) {
-    return(paste0(days_difference$lo, " - ", days_difference$hi, " days later (", days_difference$lo.lo, " - ", days_difference$hi.hi, " days, 95% CI)"))
-  } else {
-    return(paste0(days_difference$lo.lo, " - ", days_difference$hi.hi, " days later (95% CI)"))
-  }
-}
-
-peaks_dates_and_days_after <- list(
-  cases_reported = calculate_max_peak_and_days(subdyn[compartment == "cases_reported"]),
-  nonicu_p = calculate_max_peak_and_days(subdyn[compartment == "nonicu_p"]),
-  icu_p = calculate_max_peak_and_days(subdyn[compartment == "icu_p"]),
-  death_o = calculate_max_peak_and_days(subdyn[compartment == "death_o"])
+```{r tsunmit, fig.height=4, fig.cap="Unmitigated time series."}
+unmit.q <- meltquantiles(params$alls[scen_id == 1])
+unmit.q$age <- factor(
+  unmit.q$age, levels = levels(unmit.q$age)[c(6,1:5)],
+  ordered = T
 )
-
-peaks_dates <- list(
-  cases_reported = calculate_max_peak(subdyn[compartment == "cases_reported"]),
-  nonicu_p = calculate_max_peak(subdyn[compartment == "nonicu_p"]),
-  icu_p = calculate_max_peak(subdyn[compartment == "icu_p"]),
-  death_o = calculate_max_peak(subdyn[compartment == "death_o"])
+unmit.pks <- params$alls[scen_id == 1][,{
+  res <- apply(.SD, 2, max)
+  names(res) <- colnames(.SD)
+  as.list(res)
+}, by=.(compartment, age, scen_id)]
+unmit.pks$age <- factor(
+  unmit.pks$age, levels = levels(unmit.pks$age)[c(6,1:5)],
+  ordered = T
 )
+age.annotate <- function(l) sprintf("%s\n%s",l,ifelse(l=="all","ages","years"))
+stagger <- function(l) {
+  l[seq(1,length(l),by=2)] <- sprintf("%s\n", l[seq(1,length(l),by=2)])
+  l[seq(2,length(l),by=2)] <- sprintf("\n%s", l[seq(2,length(l),by=2)])
+  l
+}
 
-peaks_median_numbers <- list(
-  cases_reported = calculate_peak_number_median(subdyn[compartment == "cases_reported"]),
-  nonicu_p = calculate_peak_number_median(subdyn[compartment == "nonicu_p"]),
-  icu_p = calculate_peak_number_median(subdyn[compartment == "icu_p"]),
-  death_o = calculate_peak_number_median(subdyn[compartment == "death_o"])
-)
-dates_difference <- list(
-  cases_vs_icu = calculate_dates_difference(
-    subdyn[compartment == "cases_reported"],
-    subdyn[compartment == "nonicu_p"]
-  ),
-  icu_vs_death = calculate_dates_difference(
-    subdyn[compartment == "nonicu_p"],
-    subdyn[compartment == "death_o"]
+xscale <- scale_x_t(labels = stagger, breaks = c(90, 180, 270, 360))
+
+sharedelements <- list(
+  scale_color_discrete(guide = "none"),
+  scale_alpha_quantile(),
+  theme_minimal(base_size = 6),
+  theme(
+    panel.spacing.y = unit(18, "pt")
   )
 )
-cumulative_totals <- list(
-  cases_reported = calculate_cumulative_total(subdyn[compartment == "cases_reported"]),
-  nonicu_p = calculate_cumulative_total(subdyn[compartment == "nonicu_p"]),
-  icu_p = calculate_cumulative_total(subdyn[compartment == "icu_p"]),
-  death_o = calculate_cumulative_total(subdyn[compartment == "death_o"])
+
+plot_grid(ggplotqs(unmit.q, aes(
+  alpha = variable,
+  color = "Unmitigated"
+)) +
+  facet_grid(
+    compartment ~ age,
+    scale = "free_y", labeller = fct_labels(
+      age = age.annotate
+    ),
+    switch = "y"
+  ) +
+  sharedelements +
+  xscale +
+  coord_cartesian(ylim = c(0, NA), expand = F) +
+  theme(
+    strip.placement = "outside",
+    axis.title.y = element_blank(),
+    plot.margin = margin(l = 12)
+  ),
+int.peaks.all(unmit.pks, aes(x=age), range.scale = c(1, 1.5, 2)) + facet_grid(
+  compartment ~ "\nPeak Values", scales = "free_y"
+) +
+  scale_x_discrete("Age Group", labels = age.annotate) +
+  sharedelements +
+  theme(
+      axis.title.x = element_text(),
+      axis.text.x = element_text(),
+      axis.title.y = element_blank(),
+      strip.text.y = element_blank(),
+      plot.margin = margin(r=12)
+    ),
+  axis = "l", align = "v", rel_widths = c(3, 2)
 )
 ```
 
-# Projected epidemics with no interventions
-
-The plots show: incidence of clincal cases (with symptoms), prevalence of hospitalised patients, incidence and cumulative number of deaths.
-
-The timing of the peak is very sensitive to when community transmission starts in a country, and what interventions are used to mitigate the epidemic. In the projected epidemic the median peak number of symptomatic cases across all model projections is `r peaks_median_numbers$cases_reported`, forecast to occur on `r peaks_dates_and_days_after$cases_reported` (Fig. \@ref(fig:tsoverall)A, E). The predicted peak in hospitalised cases occurs about `r dates_difference$cases_vs_icu`, with a median of `r peaks_median_numbers$nonicu_p` cases in ward and `r peaks_median_numbers$icu_p` in ICU`r peaks_dates$nonicu_p` (Fig. \@ref(fig:tsoverall)B-C, E). The peak daily number of deaths is predicted to follow about `r dates_difference$icu_vs_death`, with the median estimate of `r peaks_median_numbers$death_o` new deaths that day (Fig. \@ref(fig:tsoverall)D-E). Cumulative number of deaths is predicted to be `r cumulative_totals$death_o`. 
-
-```{r tsoverall, echo=FALSE, fig.height=8.5, fig.cap="Overall Outcome Time Series"}
-summary_tsplotter(subdyn)
+```{r unpeakstable}
+tabpeak <- alls.dt[scen_id == 1,{
+  v.ll = max(lo.lo); t.ll = t[which.max(lo.lo)]
+  v.lo = max(lo); t.lo = t[which.max(lo)]
+  v.md = max(med); t.md = t[which.max(med)]
+  v.hi = max(hi); t.hi = t[which.max(hi)]
+  v.hh = max(hi.hi); t.hh = t[which.max(hi.hi)]
+  .(
+    t=sprintf("%i-%i (%i-%i)", round(t.hi), round(t.lo), round(t.hh), round(t.ll)),
+    v=sprintf("%i-%i (%i-%i)", round(v.lo), round(v.hi), round(v.ll), round(v.hh))
+  )},
+  by=.(age, compartment)
+][,.(
+  `Age Group`=sprintf("%s %s",as.character(age),ifelse(age=="all","ages","years")),
+  Outcome=c(
+    cases="Incident Cases",
+    death_o="Incident Deaths",
+    hosp_p="Total Hospital Occupancy",
+    nonicu_p="Non-critical Occupancy",
+    icu_p="Critical Occupancy"
+  )[as.character(compartment)],
+  `Day 50% (95%)`=t,
+  `Count 50% (95%)`=v
+)]
+collapse_rows(kable(tabpeak, caption="Peak timing and values for various outcomes in the unmitigated scenario, by age group. Timing is from the date of ongoing community spread with 50 infections."))
 ```
 
-```{r echo=FALSE}
+# Intervention Scenarios
 
-calculate_age_distribution <- function(subdt) {
-  refdt <- calculate_reference_table(subdt, by = c("run", "date", "population", "compartment", "age")) %>%
-    group_by(run, age) %>%
-    summarise(total_value = sum(value)) %>%
-    group_by(run) %>%
-    mutate(total_percent = 100 * total_value / sum(total_value)) %>%
-    group_by(age) %>%
-    summarise(
-      lo.lo = quantile(total_percent, c(0.025)),
-      lo = quantile(total_percent, c(0.25)),
-      md = quantile(total_percent, c(0.5)),
-      hi = quantile(total_percent, c(0.75)),
-      hi.hi = quantile(total_percent, c(0.975)),
-      lo_value = quantile(total_value, c(0.25)),
-      md_value = median(total_value),
-      hi_value = quantile(total_value, c(0.75)),
-      description = ifelse(round(lo.lo) == round(hi.hi),
-        paste0(round(md), "% (within 95% CI)"),
-        paste0(round(lo.lo), " - ", round(hi.hi), "% (95% CI)")
-      ),
-      range_value = ifelse(round(lo_value) == round(hi_value), paste0(scales::number(round(hi_value))),
-        paste0(scales::number(round(lo_value)), " - ", scales::number(round(hi_value)))
-      )
-    )
-  return(refdt)
-}
+The panels in Fig. \@ref(fig:tsintervention) compare unmitigated and intervention aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable).
 
-calculate_peak_number_median_age <- function(subdt) {
-  refdt <- calculate_reference_table(subdt, by = c("run", "date", "population", "compartment", "age"))
+```{r tsintervention, fig.height=4, fig.cap="Intervention time series."}
+pks <- alls.dt[age=="all",{
+  res <- apply(.SD, 2, max)
+  names(res) <- colnames(.SD)
+  as.list(res)
+}, by=.(compartment, age, scen_id)]
 
-  peaks.dt <- calculate_peaks(refdt, by = c("run", "population", "compartment", "age")) %>%
-    group_by(age) %>%
-    summarise(
-      lo.lo = quantile(peak, c(0.025)),
-      lo = quantile(peak, c(0.25)),
-      md = quantile(peak, c(0.5)),
-      hi = quantile(peak, c(0.75)),
-      hi.hi = quantile(peak, c(0.975))
-    )
-  # q <- quantile(peaks.dt$peak, probs = c(0.25, 0.75, 0.025, 0.975))
-  return(peaks.dt)
-}
-
-calculate_cumulative_median_age <- function(subdt) {
-  refdt <- calculate_reference_table(subdt, by = c("run", "date", "population", "compartment", "age"))
-
-  peaks.dt <- refdt %>%
-    group_by(run, age) %>%
-    summarise(total_value = sum(value)) %>%
-    ungroup() %>%
-    group_by(age) %>%
-    summarise(
-      lo.lo = quantile(total_value, c(0.025)),
-      lo = quantile(total_value, c(0.25)),
-      md = quantile(total_value, c(0.5)),
-      hi = quantile(total_value, c(0.75)),
-      hi.hi = quantile(total_value, c(0.975))
-    )
-  # q <- quantile(peaks.dt$peak, probs = c(0.25, 0.75, 0.025, 0.975))
-  return(peaks.dt)
-}
-
-age_distribution_percentages <- list(
-  cases_reported = calculate_age_distribution(subdyn[compartment == "cases_reported"]),
-  nonicu_p = calculate_age_distribution(subdyn[compartment == "nonicu_p"]),
-  icu_p = calculate_age_distribution(subdyn[compartment == "icu_p"]),
-  death_o = calculate_age_distribution(subdyn[compartment == "death_o"])
+sharedelements <- list(
+  scale_alpha_quantile(),
+  coord_cartesian(ylim = c(0, NA), expand = F),
+  theme_minimal(base_size = 6),
+  theme(
+    panel.spacing.y = unit(18, "pt")
+  )
 )
 
-peaks_median_by_age <- list(
-  cases_reported = calculate_peak_number_median_age(subdyn[compartment == "cases_reported"]),
-  nonicu_p = calculate_peak_number_median_age(subdyn[compartment == "nonicu_p"]),
-  icu_p = calculate_peak_number_median_age(subdyn[compartment == "icu_p"]),
-  death_o = calculate_peak_number_median_age(subdyn[compartment == "death_o"])
+plot_grid(
+ggplotqs(meltquantiles(alls.dt[age=="all"]), aes(
+   color=factor(scen_id), group=variable, alpha=variable
+)) +
+  facet_grid(compartment ~ scen_id, scale = "free_y", switch = "y", labeller = fct_labels(
+    scen_id = { res <- levels(int.factorize(c(1, scens))); names(res) <- c(1, scens); res }
+  )) +
+  xscale +
+  scale_color_discrete(guide = "none") +
+  sharedelements +
+  theme(
+    strip.placement = "outside",
+    axis.title.y = element_blank(),
+    plot.margin = margin(l = 12)
+  ),
+int.peaks.all(pks, range.scale = c(1, 1.5, 2)) + facet_grid(
+  compartment ~ "\nPeak Values", scales = "free_y", labeller = labeller(compartment = function(l) rep("",length(l)))
+) + sharedelements +
+  scale_x_discrete("\n", labels = function(bs) rep("", length(bs))) +
+  theme(
+      axis.title.x = element_text(),
+      axis.text.x = element_text(),
+      axis.title.y = element_blank(),
+      legend.key.size = unit(24, "pt"),
+      strip.text.y = element_blank(),
+      plot.margin = margin()
+    ),
+  axis = "l", align = "v", rel_widths = c(3, 2)
 )
-cumulative_median_by_age <- list(
-  cases_reported = calculate_cumulative_median_age(subdyn[compartment == "cases_reported"]),
-  nonicu_p = calculate_cumulative_median_age(subdyn[compartment == "nonicu_p"]),
-  icu_p = calculate_cumulative_median_age(subdyn[compartment == "icu_p"]),
-  death_o = calculate_cumulative_median_age(subdyn[compartment == "death_o"])
-)
-under_15_symtomatic_percentage <- age_distribution_percentages$cases_reported %>%
-  filter(age == "<14") %>%
-  select(description) %>%
-  pull()
-over_60_symtomatic_percentage <- age_distribution_percentages$cases_reported %>%
-  filter(age == "60+") %>%
-  select(description) %>%
-  pull()
-median_ward_over_60 <- age_distribution_percentages$nonicu_p %>%
-  filter(age == "60+") %>%
-  select(md_value) %>%
-  pull() %>%
-  scales::number()
-median_ward_45_59 <- age_distribution_percentages$nonicu_p %>%
-  filter(age == "45-59") %>%
-  select(md_value) %>%
-  pull() %>%
-  scales::number()
-median_icu_over_60 <- age_distribution_percentages$icu_p %>%
-  filter(age == "60+") %>%
-  select(md_value) %>%
-  pull() %>%
-  scales::number()
-median_icu_45_59 <- age_distribution_percentages$icu_p %>%
-  filter(age == "45-59") %>%
-  select(md_value) %>%
-  pull() %>%
-  scales::number()
-peaks_median_over_60 <- peaks_median_by_age$death_o %>%
-  filter(age == "60+") %>%
-  select(md) %>%
-  round() %>%
-  pull() %>%
-  scales::number()
-peaks_median_45_59 <- peaks_median_by_age$death_o %>%
-  filter(age == "45-59") %>%
-  select(md) %>%
-  round() %>%
-  pull() %>%
-  scales::number()
-cumulative_median_death_over_60 <- cumulative_median_by_age$death_o %>%
-  filter(age == "60+") %>%
-  select(md) %>%
-  round() %>%
-  pull() %>%
-  scales::number()
-cumulative_median_45_59 <- cumulative_median_by_age$death_o %>%
-  filter(age == "45-59") %>%
-  select(md) %>%
-  round() %>%
-  pull() %>%
-  scales::number()
 ```
 
-## Unmitigated epidemic projections for each age group
-
-The extra lines are because there is some stochasticity (randomness) in the model to show the uncertainty in the projections.
-
-The percentage of symptomatic cases in each age group is mostly in proportion to the age structure (Fig. \@ref(fig:byage)) (`r under_15_symtomatic_percentage` under age 15, and `r over_60_symtomatic_percentage` aged 60 or over). However, the age distribution of hospitalised cases is inverted, with the predicted median number of hospitalisations of those aged 60 and over much higher than among those aged 45-59 (`r median_ward_45_59` versus `r median_ward_over_60` in ward and `r median_icu_over_60` versus `r median_icu_45_59` in ICU). This pattern in the upper age groups is maintained for the predicted median peak in the daily number of deaths (`r peaks_median_over_60` among those aged 60 and over versus `r peaks_median_45_59` among those aged 45-59) and cumulative number of deaths (`r cumulative_median_death_over_60` among those aged 60 and over versus `r cumulative_median_45_59` among those aged 45-59). This occurs because COVID-19 has been shown to cause more severe disease and more mortality in older people.
-
-Peak times for symptomatic cases, hospitalisations and deaths occur slightly earlier among younger age groups compared with older age groups (Fig. \@ref(fig:byage)).
-
-```{r byage, echo=FALSE, fig.height=8, fig.cap="Outcome Timeseries by Age"}
-tsplotter(subdyn)
-```
-
-
-```{r echo=FALSE}
-suppressWarnings(output <- subdyn %>%
-  filter(compartment %in% compartments) %>%
-  group_by(compartment, age, run) %>%
-  summarise(total = sum(value)) %>%
-  group_by(compartment, age) %>%
-  summarise(mean_value = round(mean(total))) %>%
-  full_join(data.frame(compartment_names) %>% rownames_to_column("compartment"), by = "compartment") %>%
-  ungroup() %>%
-  select(-compartment) %>%
-  pivot_wider(id_cols = age, names_from = compartment_names, values_from = mean_value) %>%
-  rename(Age = age) %>%
-  select(Age, `Symptomatic Cases`, `Hospitalised Cases (Ward)`, `Hospitalised Cases (ICU)`, Deaths))
-
-kable(output, booktabs = TRUE, caption = "Summary of mean numbers for each compartment and age group.", label="summary")
+```{r intpeakstable}
+tabpeak <- alls.dt[age=="all",{
+  v.ll = max(lo.lo); t.ll = t[which.max(lo.lo)]
+  v.lo = max(lo); t.lo = t[which.max(lo)]
+  v.md = max(med); t.md = t[which.max(med)]
+  v.hi = max(hi); t.hi = t[which.max(hi)]
+  v.hh = max(hi.hi); t.hh = t[which.max(hi.hi)]
+  .(
+    t=sprintf("%i-%i (%i-%i)", round(t.hi), round(t.lo), round(t.hh), round(t.ll)),
+    v=sprintf("%i-%i (%i-%i)", round(v.lo), round(v.hi), round(v.ll), round(v.hh))
+  )},
+  by=.(scen_id, compartment)
+][,.(
+  Scenario=gsub(" &\n",", ",int.factorize(scen_id)),
+  Outcome=c(
+    cases="Incident Cases",
+    death_o="Incident Deaths",
+    hosp_p="Total Hospital Occupancy",
+    nonicu_p="Non-critical Occupancy",
+    icu_p="Critical Occupancy"
+  )[as.character(compartment)],
+  `Day 50% (95%)`=t,
+  `Count 50% (95%)`=v
+)]
+collapse_rows(kable(tabpeak, caption="Peak timing and values for various outcomes, by intervention scenario. Timing is from the date of ongoing community spread with 50 infections."))
 ```
 
 # The effect of interventions
-
-
 
 # Conclusions
 
