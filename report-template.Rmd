@@ -65,13 +65,10 @@ alls.dt <- params$alls[scen_id %in% c(1,scens)]
 # Overview
 
 - We use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic.
-- Estimate predicted peak in incidence, hospital bed need, deaths.
-- We show scenarios of "do nothing" and interventions to decrease transmission.
-- Methods given at the end.
-- Reports will be updated frequently.
+- Estimate predicted peak in incident symptomatic cases, deaths and daily hospital bed need.
+- We show scenarios of no intervention and social distancing and shielding interventions to decrease transmission.
 - Modelling methods and parameters are given at the end of the report.
-
-Please note this report is updated frequently as new information is included.
+- Reports will be updated frequently as new information is included.
 
 ```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
 plotter <- function(pop) {
