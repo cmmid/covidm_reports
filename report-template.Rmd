@@ -72,7 +72,7 @@ alls.dt <- params$alls[scen_id %in% c(1,scens)]
 
 # Unmitigated COVID-19 Epidemic Trajectory
 
-The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable).
+The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable); Tables \@ref(tab:uncumulative1) and \@ref(tab:uncumulative2) covers cumulative counts at particular milestones.
 
 ```{r tsunmit, fig.height=4, fig.cap="Epidemics without intervention. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). All ages is given, and separated by age group."}
 unmit.q <- meltquantiles(params$alls[scen_id == 1])
@@ -155,7 +155,6 @@ tabpeak <- alls.dt[scen_id == 1,{
   )},
   by=.(age, compartment)
 ][,.(
-  `Age Group`=sprintf("%s %s",as.character(age),ifelse(age=="all","ages","years")),
   Outcome=c(
     cases="Incident Cases",
     death_o="Incident Deaths",
@@ -163,17 +162,67 @@ tabpeak <- alls.dt[scen_id == 1,{
     nonicu_p="Non-critical Occupancy",
     icu_p="Critical Occupancy"
   )[as.character(compartment)],
+  `Age Group`=sprintf("%s %s",as.character(age),ifelse(age=="all","ages","years")),
   `Peak Day, IQR (95% interval)`=t,
   `Peak Number, IQR (95% interval)`=v
 )]
 collapse_rows(kable(tabpeak, caption="Peak timing and values for various outcomes in the unmitigated scenario, by age group. Timing is from the date of ongoing community spread with 50 infections."))
 ```
 
+```{r uncumulative1}
+outcome_cumulative <- c(
+    cases="Cases",
+    death_o="Deaths",
+    hosp_p="Total Hospital Bed-Days",
+    nonicu_p="Non-critical Bed-Days",
+    icu_p="Critical Bed-Days"
+  )
+
+rngprint <- function(r) {
+  ifelse(round(r[1])==round(r[2]),as.character(round(r[1])), sprintf("%i-%i",round(r[1]), round(r[2])))
+}
+
+unmitacc <- params$unmitigated[
+  order(t),.(t, value=cumsum(value)),by=.(run, age, compartment)
+][t %in% c(30,60,90,180,270,360),{
+  qs <- quantile(value, probs = refprobs)
+  iqr <- rngprint(qs[c(2,4)])
+  i95 <- rngprint(qs[c(1,5)])
+  sprintf("%s (%s)", iqr, i95)
+},by=.(age, compartment, t)]
+
+unmitacctable1 <- dcast(unmitacc, age + compartment ~ t, value.var="V1")[
+,.(
+  Outcome=outcome_cumulative[as.character(compartment)],
+  `Age Group`=sprintf("%s %s",as.character(age),ifelse(age=="all","ages","years")),
+  `1 month`=`30`,
+  `2 months`=`60`,
+  `3 months`=`90`
+)
+]
+
+unmitacctable2 <- dcast(unmitacc, age + compartment ~ t, value.var="V1")[
+,.(
+  Outcome=outcome_cumulative[as.character(compartment)],
+  `Age Group`=sprintf("%s %s",as.character(age),ifelse(age=="all","ages","years")),
+  `6 months`=`180`,
+  `9 months`=`270`,
+  `1 year`=`360`
+)
+]
+
+landscape(collapse_rows(kable(unmitacctable1, caption="Cumulative counts for various outcomes in the unmitigated scenario, by age group; counts are evaluated at 1, 2, 3 months, then every 3 months.")))
+```
+
+```{r uncumulative2}
+landscape(collapse_rows(kable(unmitacctable2, caption="Continuation of cumulative counts for the unmitigated scenario.")))
+```
+
 \clearpage
 
 # Intervention Scenarios
 
-The panels in Fig. \@ref(fig:tsintervention) compare epidemics without intervention with 5 different potential interventions. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable).
+The panels in Fig. \@ref(fig:tsintervention) compare epidemics without intervention with 5 different potential interventions. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable); Tables \@ref(tab:intcumulative1) and \@ref(tab:intcumulative2) covers cumulative reductions due to the interventions at particular milestones.
 
 ```{r tsintervention, fig.height=4, fig.cap="Epidemics with interventions for all ages. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care)."}
 pks <- alls.dt[age=="all",{
@@ -248,6 +297,47 @@ tabpeak <- alls.dt[age=="all",{
 )]
 collapse_rows(kable(tabpeak, caption="Peak timing and values for various outcomes, by intervention scenario. Timing is from the date of ongoing community spread with 50 infections."))
 ```
+
+```{r intcumulative1}
+rngprint <- function(r) {
+  ifelse(round(r[1])==round(r[2]),as.character(round(r[1])), sprintf("%i-%i",round(r[1]), round(r[2])))
+}
+
+intacc <- params$accs[metric == "reduction" & age == "all" & scen_id %in% scens][,{
+  iqr <- rngprint(c(lo50,hi50))
+  i95 <- rngprint(c(lo95,hi95))
+  sprintf("%s (%s)", iqr, i95)
+},by=.(age, compartment, t, scen_id)]
+
+intacctable1 <- dcast(intacc, scen_id + compartment ~ t, value.var="V1")[
+,.(
+  Scenario=gsub(" &\n",", ",int.factorize(scen_id)),
+  Outcome=outcome_cumulative[as.character(compartment)],
+  `1 month`=`30`,
+  `2 months`=`60`,
+  `3 months`=`90`
+)
+]
+
+intacctable2 <- dcast(intacc, scen_id + compartment ~ t, value.var="V1")[
+,.(
+  Scenario=gsub(" &\n",", ",int.factorize(scen_id)),
+  Outcome=outcome_cumulative[as.character(compartment)],
+  `6 months`=`180`,
+  `9 months`=`270`,
+  `1 year`=`360`
+)
+]
+
+landscape(collapse_rows(kable(intacctable1, caption="Cumulative reductions for various outcomes by intervention scenario; reductions are evaluated at 1, 2, 3 months, then every 3 months.")))
+```
+
+```{r intcumulative2}
+landscape(collapse_rows(kable(intacctable2, caption="Continuation of cumulative reductions for various intervention scenarios.")))
+```
+
+
+\clearpage
 
 # The effect of interventions
 
@@ -332,34 +422,6 @@ parameter_set_df %>%
 ## Key parameters of the transmission model 
 
 We used a serial interval of 6.5 days based on published studies [@li2020early;@bi2020epidemiology;@nishiura2020serial], and assumed that the length of the preclinical period was 30% of the total period of clinical infectiousness [@liu2020contribution]. From this, we fixed the mean of the latent period to 4 days, the mean duration of preclinical infectiousness to 1.5 days, and the mean duration of clinical infectiousness to 3.5 days. The basic reproduction number $R_0$ was estimated by synthesizing the results of a literature review (Fig. S1). For each reported value of the basic reproduction number, we matched a flexible PERT distribution (a shifted beta distribution parameterised by minimum, maximum, and mode) to the median and confidence interval reported in each study. We sampled from the resulting distributions, weighting each study equally, to obtain estimates of $R_0$ for our simulations. The age-specific clinical fraction, $y_i$, was adopted from an estimate based on case data from 6 countries [@daviesage2020], and the relative infectiousness of subclinical cases, $f$, was assumed to be 50% relative to clinical cases, as we assumed in a previous study [@daviesage2020].
-
-```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
-plotter <- function(pop) {
-  p <- ggplot(pop) +
-    aes(x = age, y = pop / 1000) +
-    geom_col(fill = "#cc3366") +
-    coord_flip() +
-    labs(x = NULL, y = "Population (thousands)") +
-    theme_minimal()
-  return(p)
-}
-sp_contact_matrices <- function(mat, legpos = "right", is_analogy = params$is_analogy) {
-  mat <- Reduce(function(l, r) l + r, mat)
-  data <- data.table(reshape2::melt(mat))
-  names(data) <- c("From", "To", "Contacts")
-  ggplot(data) +
-    geom_raster(aes(x = To, y = From, fill = Contacts)) +
-    scale_fill_viridis_c() +
-    theme_bw() +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-      strip.background = element_rect(fill = "white", colour = "white"),
-      legend.position = legpos,
-    )
-}
-plot_grid(plotter(poppyra), sp_contact_matrices(contactmatrices), ncol = 2)
-```
-
 
 ## Hospital burden estimation
 
