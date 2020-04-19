@@ -70,7 +70,6 @@ alls.dt <- params$alls[scen_id %in% c(1,scens)]
 - Modelling methods and parameters are given at the end of the report.
 - Reports will be updated frequently as new information is included.
 
-
 # Unmitigated COVID-19 Epidemic Trajectory
 
 The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable).
@@ -164,11 +163,13 @@ tabpeak <- alls.dt[scen_id == 1,{
     nonicu_p="Non-critical Occupancy",
     icu_p="Critical Occupancy"
   )[as.character(compartment)],
-  `Day 50% (95%)`=t,
-  `Count 50% (95%)`=v
+  `Peak Day, IQR (95% interval)`=t,
+  `Peak Number, IQR (95% interval)`=v
 )]
 collapse_rows(kable(tabpeak, caption="Peak timing and values for various outcomes in the unmitigated scenario, by age group. Timing is from the date of ongoing community spread with 50 infections."))
 ```
+
+\clearpage
 
 # Intervention Scenarios
 
