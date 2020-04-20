@@ -29,6 +29,7 @@ detailinputdir <- sprintf("%s/%s", inputdir, ctar)
 
 cmrefpath <- .args[fromph+1]
 
+
 for (ph in plothelpers) {
   if (grepl("rda$", ph)) {
     load(ph)
@@ -82,6 +83,14 @@ poppyra <- with(base_params, data.table(
 ))
 loc <- base_params$name
 
+cmref <- fread(cmrefpath)[loc == name]
+
+if (!cmref$cm) {
+  is_analogy <- cmref$cm_name
+} else {
+  is_analogy <- NA
+}
+
 reduce_ages <- function(dt) {
   fctr <- function(i, lvls = c("<14", "15-29", "30-44", "45-59", "60+")) {
     factor(
@@ -110,7 +119,8 @@ poppyra[, per_by_age := per_by_age / sum(pop)]
   alls = all.quan,
   contactmatrices = contact_matrices,
   poppyra = poppyra,
-  plothelpers = plothelpers
+  plothelpers = plothelpers,
+  is_analogy = is_analogy
 )
 
 rmarkdown::render(

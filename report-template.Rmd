@@ -6,6 +6,13 @@ output:
     fig_caption: yes
     toc: false
     citation_package: natbib
+    latex_engine: xelatex
+mainfont: Arial
+geometry:
+ - top=10mm
+ - left=12mm
+ - right=12mm
+ - bottom=15mm
 params:
   location: Default
   unmitigated: "`r data.frame()`"
@@ -32,6 +39,8 @@ header-includes:
   - \usepackage[normalem]{ulem}
   - \usepackage{makecell}
   - \usepackage[round]{natbib}
+  - \newcommand{\blandscape}{\begin{landscape}}
+  - \newcommand{\elandscape}{\end{landscape}}
 editor_options: 
   chunk_output_type: console
 ---
@@ -60,6 +69,8 @@ for (ph in params$plothelpers) {
 }
 
 alls.dt <- params$alls[scen_id %in% c(1,scens)]
+
+milestones <- c(90,180,270)
 ```
 
 # Overview
@@ -72,9 +83,11 @@ alls.dt <- params$alls[scen_id %in% c(1,scens)]
 
 # Unmitigated COVID-19 Epidemic Trajectory
 
-The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable); Tables \@ref(tab:uncumulative1) and \@ref(tab:uncumulative2) covers cumulative counts at particular milestones.
+The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable); Table \@ref(tab:uncumulative1) covers cumulative counts at particular milestones.
 
-```{r tsunmit, fig.height=4, fig.cap="Epidemics without intervention. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). All ages is given, and separated by age group."}
+\blandscape
+
+```{r tsunmit, fig.height=6, fig.cap="Epidemics without intervention. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). All ages is given, and separated by age group."}
 unmit.q <- meltquantiles(params$alls[scen_id == 1])
 unmit.q$age <- factor(
   unmit.q$age, levels = levels(unmit.q$age)[c(6,1:5)],
@@ -142,6 +155,8 @@ int.peaks.all(unmit.pks, aes(x=age), range.scale = c(1, 1.5, 2)) + facet_grid(
 )
 ```
 
+\elandscape
+
 ```{r unpeakstable}
 tabpeak <- alls.dt[scen_id == 1,{
   v.ll = max(lo.lo); t.ll = t[which.max(lo.lo)]
@@ -184,7 +199,7 @@ rngprint <- function(r) {
 
 unmitacc <- params$unmitigated[
   order(t),.(t, value=cumsum(value)),by=.(run, age, compartment)
-][t %in% c(30,60,90,180,270,360),{
+][t %in% milestones,{
   qs <- quantile(value, probs = refprobs)
   iqr <- rngprint(qs[c(2,4)])
   i95 <- rngprint(qs[c(1,5)])
@@ -192,39 +207,38 @@ unmitacc <- params$unmitigated[
 },by=.(age, compartment, t)]
 
 unmitacctable1 <- dcast(unmitacc, age + compartment ~ t, value.var="V1")[
-,.(
+order(compartment, age),.(
   Outcome=outcome_cumulative[as.character(compartment)],
   `Age Group`=sprintf("%s %s",as.character(age),ifelse(age=="all","ages","years")),
-  `1 month`=`30`,
-  `2 months`=`60`,
-  `3 months`=`90`
-)
-]
-
-unmitacctable2 <- dcast(unmitacc, age + compartment ~ t, value.var="V1")[
-,.(
-  Outcome=outcome_cumulative[as.character(compartment)],
-  `Age Group`=sprintf("%s %s",as.character(age),ifelse(age=="all","ages","years")),
+  `3 months`=`90`,
   `6 months`=`180`,
-  `9 months`=`270`,
-  `1 year`=`360`
+  `9 months`=`270`
 )
 ]
 
-landscape(collapse_rows(kable(unmitacctable1, caption="Cumulative counts for various outcomes in the unmitigated scenario, by age group; counts are evaluated at 1, 2, 3 months, then every 3 months.")))
-```
+# unmitacctable2 <- dcast(unmitacc, age + compartment ~ t, value.var="V1")[
+# order(compartment, age),.(
+#   Outcome=outcome_cumulative[as.character(compartment)],
+#   `Age Group`=sprintf("%s %s",as.character(age),ifelse(age=="all","ages","years")),
+#   `1 year`=`360`
+# )
+# ]
 
-```{r uncumulative2}
-landscape(collapse_rows(kable(unmitacctable2, caption="Continuation of cumulative counts for the unmitigated scenario.")))
+landscape(collapse_rows(
+  kable(unmitacctable1, caption="Cumulative counts for various outcomes in the unmitigated scenario, by age group; counts are evaluated at 3, 6, and 9 months."),
+  columns = 1
+))
 ```
 
 \clearpage
 
 # Intervention Scenarios
 
-The panels in Fig. \@ref(fig:tsintervention) compare epidemics without intervention with 5 different potential interventions. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable); Tables \@ref(tab:intcumulative1) and \@ref(tab:intcumulative2) covers cumulative reductions due to the interventions at particular milestones.
+The panels in Fig. \@ref(fig:tsintervention) compare epidemics without intervention with 5 different potential interventions. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable); Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at particular milestones.
 
-```{r tsintervention, fig.height=4, fig.cap="Epidemics with interventions for all ages. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care)."}
+\blandscape
+
+```{r tsintervention, fig.height=6, fig.cap="Epidemics with interventions for all ages. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care)."}
 pks <- alls.dt[age=="all",{
   res <- apply(.SD, 2, max)
   names(res) <- colnames(.SD)
@@ -271,6 +285,8 @@ int.peaks.all(pks, range.scale = c(1, 1.5, 2)) + facet_grid(
 )
 ```
 
+\elandscape
+
 ```{r intpeakstable}
 tabpeak <- alls.dt[age=="all",{
   v.ll = max(lo.lo); t.ll = t[which.max(lo.lo)]
@@ -313,29 +329,24 @@ intacctable1 <- dcast(intacc, scen_id + compartment ~ t, value.var="V1")[
 ,.(
   Scenario=gsub(" &\n",", ",int.factorize(scen_id)),
   Outcome=outcome_cumulative[as.character(compartment)],
-  `1 month`=`30`,
-  `2 months`=`60`,
-  `3 months`=`90`
-)
-]
-
-intacctable2 <- dcast(intacc, scen_id + compartment ~ t, value.var="V1")[
-,.(
-  Scenario=gsub(" &\n",", ",int.factorize(scen_id)),
-  Outcome=outcome_cumulative[as.character(compartment)],
+  `3 months`=`90`,
   `6 months`=`180`,
-  `9 months`=`270`,
-  `1 year`=`360`
+  `9 months`=`270`
 )
 ]
 
-landscape(collapse_rows(kable(intacctable1, caption="Cumulative reductions for various outcomes by intervention scenario; reductions are evaluated at 1, 2, 3 months, then every 3 months.")))
-```
+# intacctable2 <- dcast(intacc, scen_id + compartment ~ t, value.var="V1")[
+# ,.(
+#   Scenario=gsub(" &\n",", ",int.factorize(scen_id)),
+#   Outcome=outcome_cumulative[as.character(compartment)],
+#   `1 year`=`360`
+# )
+# ]
 
-```{r intcumulative2}
-landscape(collapse_rows(kable(intacctable2, caption="Continuation of cumulative reductions for various intervention scenarios.")))
+landscape(collapse_rows(
+  kable(intacctable1, caption="Cumulative reductions for various outcomes by intervention scenario; reductions are evaluated at 3, 6, and 9 months."), columns = 1
+))
 ```
-
 
 \clearpage
 
@@ -354,7 +365,7 @@ We used the stochastic age-structured dynamic transmission model reported in [@d
 
 We used a stochastic compartmental model stratified into 5-year age bands, with individuals classified according to current disease status (Fig. \@ref(fig:modelpars))) and transmission between groups based on social mixing patterns [@daviesage2020;@mossong2008social]. After infection with SARS-CoV-2 in the model, susceptible individuals pass through a latent period before becoming infectious, either with a preclinical and then clinical infection, or with a subclinical infection, before recovery or isolation. We refer to those infections causing few or no symptoms as subclinical. We assume older individuals are more likely to show clinical symptoms [@daviesage2020].
 
-```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix from ",params$is_analogy))) }
+```{r modelpars, echo=FALSE, fig.height=2.5, fig.cap=sprintf("Population Structure%s", ifelse(is.na(params$is_analogy), "", paste0("; contact matrix based on ",params$is_analogy))) }
 plotter <- function(pop) {
   p <- ggplot(pop) +
     aes(x = age, y = pop / 1000) +
@@ -383,11 +394,14 @@ plot_grid(plotter(poppyra), sp_contact_matrices(params$contactmatrices), ncol = 
 
 ## Key model parameters 
 
-We collated multiple sources of evidence to estimate key model parameters (Table \@ref(tab:parameters)). In a meta-analysis, we estimated that the basic reproduction number, $R_0$, was 2.7 (95% credible interval: 1.6–3.9) across settings without substantial control measures in place ($R_0$ describes the average number of secondary infections caused by a typical primary infection in a completely susceptible population). We derived age-stratified case fatality ratios (CFR) to estimate a CFR that ranged substantially across age groups, from 0.1% in the 20–29 age group to 7.7% in the over-80 age group. For all model parameters, their values or distributions are given in Table \@ref(tab:parameters) and the distributions of variable parameters are shown in Fig. \@ref(fig:parameterdistributions).
+We collated multiple sources of evidence to estimate key model parameters (Table \@ref(tab:parameters)). In a meta-analysis, we estimated that the basic reproduction number, $R_0$, was 2.7 (95% credible interval: 1.6–3.9) across settings without substantial control measures in place ($R_0$ describes the average number of secondary infections caused by a typical primary infection in a completely susceptible population). We derived age-stratified case fatality ratios (CFR) to estimate a CFR that ranged substantially across age groups, from 0.1% in the 20–29 age group to 7.7% in the over-80 age group. For all model parameters, their values or distributions are given in Table \@ref(tab:parameters)
+<!-- and the distributions of variable parameters are shown in Fig. \@ref(fig:parameterdistributions). -->
 
-```{r parameterdistributions, echo=FALSE, fig.height=8, fig.cap="Model Parameter Distributions."}
-plot_all_parameters()
-```
+
+<!-- ```{r parameterdistributions, echo=FALSE, fig.height=8, fig.cap="Model Parameter Distributions."} -->
+<!-- plot_all_parameters() -->
+<!-- ``` -->
+
 
 ```{r echo=FALSE}
 parameter_set_df <- data.frame(matrix(c(
