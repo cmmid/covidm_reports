@@ -58,10 +58,8 @@ ${INTINPUTDIR}/%/params_set.rds: create_params_set.R ${INTINPUTDIR}/../generatio
 ROOTS := $(shell cat LMICroots.txt)
 
 # TODO: this depends on country/001 - 189.qs
-${HPCDIR}/%/peak.qs: digest.R
+${HPCDIR}/%/accs.qs ${HPCDIR}/%/alls.qs ${HPCDIR}/%/peak.qs: digest.R
 	Rscript $^ $@
-
-${HPCDIR}/%/accs.qs ${HPCDIR}/%/alls.qs: ${HPCDIR}/%/peak.qs
 
 ${HPCDIR}/%.qs: run_scenarios.R helper_functions.R
 	mkdir -p $(@D)
@@ -97,6 +95,16 @@ report-template.Rmd ${PLOTREF} COVID.bib
 	Rscript $(filter-out %.bib,$^) \
 	${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv \
 	$@
+
+all001: $(patsubst %,${HPCDIR}/%/001.qs,${ROOTS})
+
+allpeak: $(patsubst %,${HPCDIR}/%/peak.qs,${ROOTS})
+
+allall: $(patsubst %,${HPCDIR}/%/alls.qs,${ROOTS})
+
+allacc: $(patsubst %,${HPCDIR}/%/accs.qs,${ROOTS})
+
+allreps: $(patsubst %,${REPDIR}/%/report.pdf,${ROOTS})
 
 testrep: ${REPDIR}/caboverde/report.pdf
 

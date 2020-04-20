@@ -193,7 +193,7 @@ for(i in 1:nrow(run_options)){
     params,
     1,
     model_seed = run_options[i, model_seed]
-  )$dynamics[compartment %in% c("cases","death_o","icu_p","nonicu_p")]
+  )$dynamics[compartment %in% c("cases","death_o","icu_p","nonicu_p","E")]
   
   result[, "run"] <- i
   
