@@ -27,27 +27,42 @@ if (!length(matref)) matref <- country
 
 stopifnot(length(country)==1)
 
+#set up node-runs
 probs = fread(
-  "Age,Prop_symptomatic,IFR,Prop_inf_hosp,Prop_inf_critical,Prop_critical_fatal,Prop_noncritical_fatal,Prop_symp_hospitalised,Prop_hospitalised_critical
-10,0.66,8.59E-05,0.002361009,6.44E-05,0.5,0,0,0.3
-20,0.66,0.000122561,0.003370421,9.19E-05,0.5,9.47E-04,0.007615301,0.3
-30,0.66,0.000382331,0.010514103,0.000286748,0.5,0.001005803,0.008086654,0.3
-40,0.66,0.000851765,0.023423527,0.000638823,0.5,0.001231579,0.009901895,0.3
-50,0.66,0.001489873,0.0394717,0.001117404,0.5,0.002305449,0.018535807,0.3
-60,0.66,0.006933589,0.098113786,0.005200192,0.5,0.006754596,0.054306954,0.3
-70,0.66,0.022120421,0.224965092,0.016590316,0.5,0.018720727,0.150514645,0.3
-80,0.66,0.059223786,0.362002579,0.04441784,0.5,0.041408882,0.332927412,0.3
-100,0.66,0.087585558,0.437927788,0.065689168,0.5,0.076818182,0.617618182,0.3"
+  "Age_low,Age_high,Prop_symptomatic,IFR,Prop_inf_hosp,Prop_inf_critical,Prop_critical_fatal,Prop_noncritical_fatal,Prop_symp_hospitalised,Prop_hospitalised_critical
+0,9,0.66,8.59E-05,0.002361009,6.44E-05,0.5,0,0,0.3
+10,19,0.66,0.000122561,0.003370421,9.19E-05,0.5,9.47E-04,0.007615301,0.3
+20,29,0.66,0.000382331,0.010514103,0.000286748,0.5,0.001005803,0.008086654,0.3
+30,39,0.66,0.000851765,0.023423527,0.000638823,0.5,0.001231579,0.009901895,0.3
+40,49,0.66,0.001489873,0.0394717,0.001117404,0.5,0.002305449,0.018535807,0.3
+50,59,0.66,0.006933589,0.098113786,0.005200192,0.5,0.006754596,0.054306954,0.3
+60,69,0.66,0.022120421,0.224965092,0.016590316,0.5,0.018720727,0.150514645,0.3
+70,79,0.66,0.059223786,0.362002579,0.04441784,0.5,0.041408882,0.332927412,0.3
+80,100,0.66,0.087585558,0.437927788,0.065689168,0.5,0.076818182,0.617618182,0.3"
 )
 
-reformat = function(P) {
+#increase CFR
+cfr_RR <- 1.5
+probs[, Prop_critical_fatal := Prop_critical_fatal * cfr_RR]
+probs[, Prop_noncritical_fatal := Prop_noncritical_fatal * cfr_RR]
+
+#min(1, x) does not work for noncritical_fatal, for some reason
+probs[Prop_critical_fatal > 1, Prop_critical_fatal := 1]
+probs[Prop_noncritical_fatal > 1, Prop_noncritical_fatal := 1]
+
+reformat = function(P, lmic_adjust=TRUE) {
   # no info to re-weight these, so assume 70-74 is like 70-79, and 75+ is like 80+
-  return (c(rep(P[1:7], each = 2),P[8:9]))
+  if(lmic_adjust){
+    P <- P[2:length(P)]
+    return (rep(P[1:8], each = 2))
+  } else {
+    return (c(rep(P[1:7], each = 2),P[8:9])) 
+  }
 }
 
-P.icu_symp     = reformat(probs[, Prop_symp_hospitalised * Prop_hospitalised_critical]);
-P.nonicu_symp  = reformat(probs[, Prop_symp_hospitalised * (1 - Prop_hospitalised_critical)]);
-P.death    = reformat(probs[, Prop_noncritical_fatal]);
+P.icu_symp     = reformat(probs[, Prop_symp_hospitalised * Prop_hospitalised_critical], lmic_adjust = TRUE);
+P.nonicu_symp  = reformat(probs[, Prop_symp_hospitalised * (1 - Prop_hospitalised_critical)], lmic_adjust = TRUE);
+P.death    = reformat(probs[, Prop_noncritical_fatal], lmic_adjust = TRUE);
 
 max_time <- 60
 tres <- 0.25
@@ -88,7 +103,6 @@ cm_track_process <- function(src, name, delays, agecats = 16, report = "p") {
   )
 }
 
-
 burden_processes = list(
   # process of sending symptomatic cases to hospital icu or ward
   cm_multinom_process(
@@ -114,7 +128,12 @@ popnorm <- function(x, seed_cases = 50){
   x$matrices$home <- x$matrices$work <- x$matrices$school <- x$matrices$other <- x$matrices$other*0
   
   #age-specific probability of being symptomatic
-  x$y <- c(rep(0.056, 3), rep(0.49, 8), rep(0.74, 8))
+  #x$y <- c(rep(0.056, 3), rep(0.49, 8), rep(0.74, 8))
+  #new values proposed by nick
+  x$y <- c(
+    rep(0.2973718, 2), rep(0.2230287, 2), rep(0.4191036, 2),
+    rep(0.4445867, 2), rep(0.5635720, 2), rep(0.8169443, 6)
+  )
   
   #no cases in empty compartments
   x$dist_seed_ages <- as.numeric(!(x$size == 0))
@@ -136,6 +155,7 @@ params1 <- cm_parameters_SEI3R(
 params1$processes = burden_processes
 
 params1$pop <- lapply(params1$pop, popnorm)
+params1$time1 <- as.Date(params1$time1)
 
 params_set[[1]] <- params1
 
@@ -161,6 +181,9 @@ params2$pop[[2]]$seed_times <- 1e6
 
 #normal mixing between populations
 params2$travel <- matrix(rep(1, 4), 2)
+
+params2$time1 <- as.Date(params2$time1)
+
 params_set[[2]] <- params2
 
 saveRDS(params_set, outfile)

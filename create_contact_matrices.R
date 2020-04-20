@@ -7,8 +7,8 @@ suppressPackageStartupMessages({
 
 .args <- if (interactive()) c(
   "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
-  "../covidm", "uganda", 500,
-  "~/Dropbox/covidm_reports/interventions/inputs/uganda/contact_matrices.rds"
+  "../covidm", "benin", 500,
+  "~/Dropbox/covidm_reports/interventions/inputs/benin/contact_matrices.rds"
 ) else commandArgs(trailingOnly = TRUE)
 
 lookup <- fread(.args[1])[, short := tolower(gsub("[^a-zA-Z]","",name))]
