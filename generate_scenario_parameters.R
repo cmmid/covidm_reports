@@ -3,9 +3,9 @@ helper_file <- "~/workspace/covidm_reports/helper_functions.R"
 
 library(data.table)
 source(helper_file)
-
+  
 # **************************************
-#           main scenarios
+#           main scen arios
 # **************************************
 #unmitigated
 scenario_1 <- set_scenario_combinations(

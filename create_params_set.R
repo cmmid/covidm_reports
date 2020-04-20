@@ -45,7 +45,10 @@ popnorm <- function(x){
   #age-specific probability of being symptomatic
   #x$y <- c(rep(0.056, 3), rep(0.49, 8), rep(0.74, 8))
   #new values proposed by nick
-  x$y <- c(rep(0.2973718, 2), rep(0.2230287, 2), rep(0.4191036, 2), rep(0.4445867, 2), rep(0.5635720, 2), rep(0.8169443, 6))
+  x$y <- c(
+    rep(0.2973718, 2), rep(0.2230287, 2), rep(0.4191036, 2),
+    rep(0.4445867, 2), rep(0.5635720, 2), rep(0.8169443, 6)
+  )
   
   #no cases in empty compartments
   x$dist_seed_ages <- as.numeric(!(x$size == 0))
