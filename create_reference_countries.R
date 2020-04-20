@@ -28,7 +28,7 @@ lmic.countries <- c(
   "Nigeria", "Reunion", "Rwanda", "Senegal", "Seychelles",
   "Sierra Leone", "Somalia", "South Africa", "South Sudan",
   "Sudan", "Tunisia", "Uganda", "United Republic of Tanzania",
-  "Western Sahara", "Zambia", "Zimbabwe", "Cambodia"
+  "Western Sahara", "Zambia", "Zimbabwe", "Cambodia", "Afghanistan"
 )
 
 ref_pops <- readRDS(sprintf("%s/data/wpp2019_pop2020.rds", cm_path))
