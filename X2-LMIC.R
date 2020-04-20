@@ -7,7 +7,10 @@ suppressPackageStartupMessages({
 #' don't hard code paths, provide them as arguments
 
 .args <- if (interactive()) c(
-  "..", "100", "LMICargs.txt", "LMIC.txt", "CaboVerde-res.rds"
+  "LMICargs.txt", "LMIC.txt", 
+  "~/Dropbox/covidm_reports/interventions/inputs/../generation_data/data_contacts_missing.csv",
+  "../covidm", "100",
+  "~/Dropbox/covidm_reports/Angola-res.rds"
 #' input path,
 #' number to run,
 #' country reference file,
@@ -15,18 +18,23 @@ suppressPackageStartupMessages({
 #' stem of output file name
 ) else commandArgs(trailingOnly = TRUE)
 
-cm_path = .args[1];
+cm_path = .args[4];
 cm_force_rebuild = F;
 cm_build_verbose = F;
+cm_force_shared = T
 source(paste0(cm_path, "/R/covidm.R"))
 
-nruns <- as.integer(.args[2])
-tarreffile <- .args[3]
-ctyref <- .args[4]
-outtar <- tail(.args, 1)
+nruns <- as.integer(.args[5])
+tarreffile <- .args[1]
+ctyref <- .args[2]
+outtar <- basename(tail(.args, 1))
 
 locind <- which(fread(tarreffile, header = F) == outtar)
 loc <- fread(ctyref, header = F, sep = ",")[locind]$V1
+
+matloc <- fread(path.expand(.args[3]))[name == loc, ifelse(cm, name, cm_name)]
+
+stopifnot(length(matloc)==1)
 
 probs = fread(
   "Age,Prop_symptomatic,IFR,Prop_inf_hosp,Prop_inf_critical,Prop_critical_fatal,Prop_noncritical_fatal,Prop_symp_hospitalised,Prop_hospitalised_critical
@@ -67,10 +75,10 @@ burden_processes = list(
 )
 
 # build parameters for all of UK, down to the regional level (level 2).
-params = cm_parameters_SEI3R(loc, loc, deterministic = F);
+params = cm_parameters_SEI3R(loc, matloc, deterministic = F);
 params$processes = burden_processes
 params$pop[[1]]$seed_times = 0:9
 
 run = cm_simulate(params, nruns)
 
-saveRDS(run, outtar)
+saveRDS(run, tail(.args, 1))

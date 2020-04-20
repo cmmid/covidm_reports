@@ -1,5 +1,6 @@
 suppressPackageStartupMessages({
   require(data.table)
+  require(qs)
 })
 
 .args <- if (interactive()) c(
@@ -7,7 +8,7 @@ suppressPackageStartupMessages({
   "../covidm", "uganda", "001", 
   sprintf("~/Dropbox/covidm_reports/interventions/%s",c(
     "inputs",
-    "uganda/001.rds"
+    "uganda/001.qs"
   ))
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -18,14 +19,16 @@ scenario_index <- as.integer(.args[4])
 inputpth <- path.expand(.args[5])
 detailinputs <- sprintf("%s/%s", inputpth, country)
 tarfile <- tail(.args, 1)
-unmitigatedname <- gsub("\\d+\\.rds$","unmit_timings.rds", tarfile)
+unmitigatedname <- gsub("\\d+\\.qs$","unmit_timings.qs", tarfile)
 
 
 cm_force_rebuild = F;
 cm_build_verbose = F;
 cm_force_shared = T
 
-source(paste0(cm_path, "/R/covidm.R"))
+suppressPackageStartupMessages({
+  source(paste0(cm_path, "/R/covidm.R"))
+})
 
 .inputfns <- list.files(inputpth, "\\.rds", full.names = TRUE, include.dirs = F)
 
@@ -50,8 +53,12 @@ attach(scenarios[[scen]][s,])
 
 if (scen != 1){
   # should already have incidence set
+<<<<<<< HEAD
   unmitigated <- readRDS(unmitigatedname)[compartment == "cases"]
   unmitigated <- unmitigated[, .(value=sum(value)), by=c("run", "t", "compartment")]
+=======
+  unmitigated <- qread(unmitigatedname)[compartment == "cases"]
+>>>>>>> master
 }
 
 #' set up paramaters
@@ -67,6 +74,12 @@ if(hirisk_prop_isolated > 0){
 results_cases <- list()
 
 params_back <- params
+
+ulim <- as.integer(Sys.getenv("SIMRUNS"))
+if (!is.na(ulim)) {
+  cat("running reduced set: ",ulim,"...\n")
+  run_options <- run_options[1:min(ulim, .N)]
+}
 
 for(i in 1:nrow(run_options)){
   
@@ -180,7 +193,7 @@ for(i in 1:nrow(run_options)){
     params,
     1,
     model_seed = run_options[i, model_seed]
-  )$dynamics[compartment == "cases"]
+  )$dynamics[compartment %in% c("cases","death_o","icu_p","nonicu_p")]
   
   result[, "run"] <- i
   
@@ -191,10 +204,21 @@ allbind <- rbindlist(results_cases)
 
 if (scen == 1){
   tpop <- sum(params_set[[1]]$pop[[1]]$size)
-  inc <- allbind[,.(
+  inc <- allbind[compartment == "cases",.(
     incidence = sum(value)/tpop
   ), keyby=.(run, t, compartment)]
-  saveRDS(inc, unmitigatedname)
+  qsave(inc, unmitigatedname)
 }
 
-saveRDS(allbind[value != 0], tarfile)
+reduce_ages <- function (dt) {
+  fctr <- function(i, lvls = c("<14", "15-29", "30-44","45-59", "60+")) factor(
+    lvls[i], levels = lvls, ordered = T
+  )
+  dt[between(as.integer(group), 1, 3), age := fctr(1) ]
+  dt[between(as.integer(group), 4, 6), age := fctr(2) ]
+  dt[between(as.integer(group), 7, 9), age := fctr(3) ]
+  dt[between(as.integer(group), 10, 12), age := fctr(4) ]
+  dt[as.integer(group) >= 13, age := fctr(5) ]
+}
+
+qsave(reduce_ages(allbind)[, .(value = sum(value)), keyby=.(run, t, age, compartment)][value != 0], tarfile)
