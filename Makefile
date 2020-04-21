@@ -96,6 +96,13 @@ report-template.Rmd ${PLOTREF} COVID.bib
 	${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv \
 	$@
 
+DATE := $(shell date +%Y_%m_%d)
+
+${REPDIR}/LSHTM_modelling_report_%_${DATE}.pdf: ${REPDIR}/%/report.pdf
+	cp $< $@
+
+extra_name_reports: $(patsubst %,${REPDIR}/LSHTM_modelling_report_%_${DATE}.pdf,${ROOTS})
+
 all001: $(patsubst %,${HPCDIR}/%/001.qs,${ROOTS})
 
 allpeak: $(patsubst %,${HPCDIR}/%/peak.qs,${ROOTS})

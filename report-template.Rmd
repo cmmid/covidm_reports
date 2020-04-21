@@ -7,6 +7,7 @@ output:
     toc: false
     citation_package: natbib
     latex_engine: xelatex
+    fig_crop: no
 mainfont: Arial
 geometry:
  - top=10mm
@@ -139,7 +140,7 @@ In the event of unmitigated epidemic, we anticipate that:
 
 \blandscape
 
-```{r tsunmit, fig.height=6, fig.cap="Epidemics without intervention. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). All ages is given, and separated by age group."}
+```{r tsunmit, fig.height=6, out.width="10in", fig.width=10, fig.cap="Epidemics without intervention. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). All ages is given, and separated by age group."}
 
 age.annotate <- function(l) sprintf("%s\n%s",l,ifelse(l=="all","ages","years"))
 stagger <- function(l) {
@@ -148,14 +149,14 @@ stagger <- function(l) {
   l
 }
 
-xscale <- scale_x_t(labels = stagger, breaks = c(90, 180, 270, 360))
+xscale <- scale_x_t("Months since epidemic start", labels = function(b) sprintf("%i\n", b/30), breaks = c(90, 180, 270, 360))
 
 sharedelements <- list(
   scale_color_discrete(guide = "none"),
   scale_alpha_quantile(),
-  theme_minimal(base_size = 6),
+  theme_minimal(base_size = 10),
   theme(
-    panel.spacing.y = unit(18, "pt")
+    panel.spacing.y = unit(12, "pt")
   )
 )
 
@@ -312,7 +313,7 @@ The total and % net reduction to cases, deaths, and hospitalised person-days in 
 
 \blandscape
 
-```{r tsintervention, fig.height=6, fig.cap="Epidemics with interventions for all ages. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care)."}
+```{r tsintervention, fig.height=6, out.width="10in", fig.width=10, fig.cap="Epidemics with interventions for all ages. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care)."}
 pks <- alls.dt[age=="all",{
   res <- apply(.SD, 2, max)
   names(res) <- colnames(.SD)
@@ -322,9 +323,9 @@ pks <- alls.dt[age=="all",{
 sharedelements <- list(
   scale_alpha_quantile(),
   coord_cartesian(ylim = c(0, NA), expand = F),
-  theme_minimal(base_size = 6),
+  theme_minimal(base_size = 10),
   theme(
-    panel.spacing.y = unit(18, "pt")
+    panel.spacing.y = unit(12, "pt")
   )
 )
 

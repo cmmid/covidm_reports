@@ -5,15 +5,16 @@ suppressPackageStartupMessages({
 
 .args <- if (interactive()) c(
   "helper_functions.R",
-  "../covidm", "uganda", "001", 
+  "../covidm", "caboverde", "002", 
   sprintf("~/Dropbox/covidm_reports/interventions/%s",c(
-    "inputs",
-    "uganda/001.qs"
-  ))
+    "inputs"
+  )),
+  "caboverde/002.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
 source(.args[1])
 cm_path = .args[2]
+cm_version = 1
 country <- .args[3]
 scenario_index <- as.integer(.args[4])
 inputpth <- path.expand(.args[5])
@@ -53,12 +54,8 @@ attach(scenarios[[scen]][s,])
 
 if (scen != 1){
   # should already have incidence set
-<<<<<<< HEAD
-  unmitigated <- readRDS(unmitigatedname)[compartment == "cases"]
-  unmitigated <- unmitigated[, .(value=sum(value)), by=c("run", "t", "compartment")]
-=======
   unmitigated <- qread(unmitigatedname)[compartment == "cases"]
->>>>>>> master
+  # unmitigated <- unmitigated[, .(value=sum(value)), by=c("run", "t", "compartment")]
 }
 
 #' set up paramaters

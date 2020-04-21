@@ -7,6 +7,8 @@ suppressPackageStartupMessages({
   "caboverde/peak.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
+refprobs <- c(lo.lo=0.025, lo=0.25, med=0.5, hi=0.75, hi.hi=0.975)
+
 simfns <- sort(list.files(dirname(.args[1]), "\\d+\\.qs", full.names = TRUE))
 
 # readsimf <- function(fn) {
@@ -52,17 +54,18 @@ full <- function(dt, scen_id) {
   tmp <- rbind(tmp, tmp[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp_p"),by=.(run, t, age)])
   rm(inc, prev)
   qtmp <- tmp[order(t),.(t, value = cumsum(value)), by=.(run, age, compartment)][,{
-    qs <- quantile(value, probs = c(0.025,0.25,0.5,0.75,0.975))
+    qs <- quantile(value, probs = refprobs)
+    names(qs) <- names(refprobs)
     as.list(qs)
   }, by=.(compartment, t, age)]
   
   return(qtmp[order(t),.(
     t,
-    lo.lo = diff(c(0,`2.5%`)),
-    lo = diff(c(0,`25%`)),
-    med = diff(c(0,`50%`)),
-    hi = diff(c(0,`75%`)),
-    hi.hi = diff(c(0,`97.5%`))
+    lo.lo = diff(c(0,lo.lo)),
+    lo = diff(c(0,lo)),
+    med = diff(c(0,med)),
+    hi = diff(c(0,hi)),
+    hi.hi = diff(c(0,hi.hi))
   ),keyby=.(compartment, age)][, scen_id := scen_id ])
 }
 
@@ -118,8 +121,10 @@ calcAll <- function(dt) {
   rbind(
     peak_value(dt), # peak cases
     peak_value(dt, "death_o"), # peak deaths
+    peak_value(dt, "E"), # peak infections
     cumul(dt), # cumulative cases
     cumul(dt, "death_o"), # cumulative deaths
+    cumul(dt, "E"), # cumulative infections
     peak_value(dt, comp = "icu_p"),
     peak_value(dt, comp = "nonicu_p"),
     peak_value(hospdt, comp = "hosp_p"),
@@ -149,14 +154,19 @@ for (ind in seq_along(simfns[-1])) {
   
   qs_peak <- melt(
     compar_peak[,
-      .(delay = t-i.t, reduction = i.value - value, effectiveness = ifelse(i.value == value, 0, (i.value - value)/i.value), run, compartment, age, measure)
+      .(
+        value = value,
+        timing = t,
+        delay = t-i.t,
+        reduction = i.value - value,
+        effectiveness = ifelse(i.value == value, 0, (i.value - value)/i.value), run, compartment, age, measure)
     ],
     id.vars = c("run","compartment", "age"),
-    measure.vars = c("delay","reduction","effectiveness"),
+    measure.vars = c("value","timing","delay","reduction","effectiveness"),
     variable.name = "metric"
   )[, {
-    qs <- quantile(value, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-    names(qs) <- c("lo95","lo50","med","hi50","hi95")
+    qs <- quantile(value, probs = refprobs)
+    names(qs) <- names(refprobs)
     as.list(qs)
   }, keyby=.(metric, compartment, age)]
   rm(compar_peak)
@@ -170,14 +180,19 @@ for (ind in seq_along(simfns[-1])) {
 
   qs_acc <- melt(
     compar_acc[,
-      .(reduction = i.value - value, effectiveness = ifelse(i.value == value, 0, (i.value - value)/i.value), run, compartment, age, measure, t),
+      .(
+        value = value,
+        reduction = i.value - value,
+        effectiveness = ifelse(i.value == value, 0, (i.value - value)/i.value),
+        run, compartment, age, measure, t
+      ),
     ],
     id.vars = c("run","compartment", "age", "t"),
-    measure.vars = c("reduction","effectiveness"),
+    measure.vars = c("value","reduction","effectiveness"),
     variable.name = "metric"
   )[, {
-    qs <- quantile(value, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-    names(qs) <- c("lo95","lo50","med","hi50","hi95")
+    qs <- quantile(value, probs = refprobs)
+    names(qs) <- names(refprobs)
     as.list(qs)
   }, keyby=.(metric, compartment, age, t)]
   rm(compar_acc)
