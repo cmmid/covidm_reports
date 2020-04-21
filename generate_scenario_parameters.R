@@ -332,5 +332,5 @@ if(!dir.exists("./inputs")){
   dir.create("./inputs")
 }
 
-saveRDS(scenarios_overview, paste0("./inputs/scenarios_overview.rds"))
-saveRDS(scenarios, paste0("./inputs/scenarios.rds"))
+saveRDS(scenarios_overview, sprintf("%s/scenarios_overview.rds", input_dir))
+saveRDS(scenarios, sprintf("%s/scenarios.rds", input_dir))
