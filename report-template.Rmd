@@ -81,37 +81,57 @@ milestones <- c(90,180,270)
 
 # Overview
 
-- We use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic.
-- Estimate predicted peak in incident symptomatic cases, deaths and daily hospital bed need.
-- We show scenarios of no intervention and social distancing and shielding interventions to decrease transmission.
-- Modelling methods and parameters are given at the end of the report. Parameters, including severity and hospitalisation rates, are based on global outbreak data, which have primarily been observed in Asia, Europe, and North America. These values implicitly assume risk factor rates and health service system effectiveness which may not apply generally in lower-middle income settings.
-- Reports will be updated frequently as new information is included.
+- We use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic in `r params$location`.
+- We consider scenarios for an unmitigated epidemic (*i.e.*, no intervention), and combinations of social distancing and shielding interventions to decrease transmission.
+- We estimate predicted peak counts and timing in incident symptomatic cases, deaths and daily hospital bed need, and calculate the impact of the interventions relative to an unmitigated epidemic.
+- Transmission parameters, including severity and hospitalisation rates, are based on global outbreak data, which have primarily been observed in Asia, Europe, and North America. These values implicitly assume risk factor rates and health service system effectiveness which may not apply generally in lower-middle income settings.
+- Population parameters are based on demographics of `r params$location` and estimated contact matrices, and assume a single national population
+- We assume the outbreak is seeded with 50 initial infections, proportionally distributed according to the age demography of `r params$location`. We refer to this day 0 as the *initial introduction*.
+- These reports will be updated as `r params$location`-specific details become available, *e.g.*: local parameter estimates, appropriate timing and number of initial introductions, appropriate sub-national populations, and planned or executed interventions are available.
+- Modelling methods and parameters are given at the end of the report.
+
+**All numerical values are reported to two significant figures only.**
 
 # Unmitigated COVID-19 Epidemic Trajectory
 
-The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of cases and deaths, and daily demand for hospital care. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable); Table \@ref(tab:uncumulative1) covers cumulative counts at particular milestones.
+The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of COVID-19 cases and deaths in `r params$location`, and daily demand for hospital care. The ranges for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable) (by 50% and 95% forecast intervals); Table \@ref(tab:uncumulative1) covers cumulative counts at 3, 6, 9, and 12 months from initial introduction in `r params$location`.
 
 ```{r}
 unmit.q <- meltquantiles(params$alls[scen_id == 1])
-unmit.q$age <- factor(
-  unmit.q$age, levels = levels(unmit.q$age)[c(6,1:5)],
-  ordered = T
-)
+unmit.q$age <- factor(unmit.q$age, levels = levels(unmit.q$age)[c(6,5,1:4)], ordered = TRUE)
+reage <- function(a, lvls = levels(unmit.q$age)) factor(a, levels = lvls, ordered = TRUE)
+unmit.q$compartment <- factor(unmit.q$compartment, levels = levels(unmit.q$compartment)[c(1,5,3:4,2)], ordered = TRUE)
+recomp <- function(cmp, lvls = levels(unmit.q$compartment)) factor(cmp, levels = lvls, ordered = TRUE)
+
+reord <- function(dt) dt[, age := reage(age) ][, compartment := recomp(compartment) ]
+
 unmit.pks <- params$alls[scen_id == 1][,{
   res <- apply(.SD, 2, max)
   names(res) <- colnames(.SD)
   as.list(res)
 }, by=.(compartment, age, scen_id)]
-unmit.pks$age <- factor(
-  unmit.pks$age, levels = levels(unmit.pks$age)[c(6,1:5)],
-  ordered = T
-)
+reord(unmit.pks)
+
 quotepeaks <- unmit.pks[age == "all"]
+
+up <- function(v, sf = 2) {
+  ref <- max(floor(log10(v))-(sf-1),0)
+  ceiling(v/(10^ref))*(10^ref)
+}
+
+down <- function(v, sf = 2) {
+  ref <- max(floor(log10(v))-(sf-1),0)
+  floor(v/(10^ref))*(10^ref)
+}
+
 rngprint <- function(r, prefix="") {
-  ifelse(round(r[1])==round(r[2]),as.character(round(r[1])), sprintf("%s%i-%i",prefix,round(r[1]), round(r[2])))
+  ifelse(down(r[1])==up(r[2]),format(signif(r[1],2),big.mark = ","), sprintf("%s%s - %s",prefix,format(down(r[1]), big.mark = ","), format(up(r[2]),  big.mark = ",")))
 }
 bullettext <- function(filterdt) {
   paste0(rngprint(filterdt[,c(lo,hi)],"between ")," (95%: ",rngprint(filterdt[,c(lo.lo,hi.hi)]),")")
+}
+tabltext <- function(filterdt) {
+  paste0(rngprint(filterdt[,c(lo,hi)])," (",rngprint(filterdt[,c(lo.lo,hi.hi)]),")")
 }
 outcomesc <- params$alls[
   scen_id == 1 & age == "all"][,{
@@ -129,18 +149,41 @@ outcomest <- params$alls[
 ]
 ```
 
-In the event of unmitigated epidemic, we anticipate that:
+In the event of unmitigated epidemic, we anticipate that in `r params$location` the total number of symptomatic cases one year from initial introduction is `r bullettext(outcomesc[compartment == "cases"])` and the total number of deaths at that time is `r bullettext(outcomesc[compartment == "death_o"])`. Table \@ref(tab:sumtable) shows the size and timing of peaks for various outcomes.
 
-- the incidence of symptomatic cases will peak `r bullettext(quotepeaks[compartment == "cases"])` per day, `r bullettext(outcomest[compartment == "cases"])` days from the point of 50 active infections in the community.
-- the incidence of deaths will peak `r bullettext(quotepeaks[compartment == "death_o"])` per day, `r bullettext(outcomest[compartment == "death_o"])` days out
-- overall hospital demand will peak `r bullettext(quotepeaks[compartment == "hosp_p"])` beds needed per day, `r bullettext(outcomest[compartment == "hosp_p"])` days out
-- based on current global rates for critical and non-critical care, the demand for critical care will peak `r bullettext(quotepeaks[compartment == "icu_p"])` and non-critical care `r bullettext(quotepeaks[compartment == "nonicu_p"])`.
-- the expected total number of symptomatic cases one year from the epidemic start is `r bullettext(outcomesc[compartment == "cases"])`
-- the expected total number of deaths one year from the epidemic start is `r bullettext(outcomesc[compartment == "death_o"])`
+```{r sumtable}
+tabl <- data.table(
+  `Outcome` = c(
+    "Incidence of Symptomatic Cases",
+    "Overall Hospitalisation Demand",
+    "Non-critical Hospitalisation Demand",
+    "Critical Hospitalisation Demand",
+    "Incidence of Deaths"
+  ),
+  `50% interval on peak count (95% interval)` = c(
+    tabltext(quotepeaks[compartment == "cases"]),
+    tabltext(quotepeaks[compartment == "hosp_p"]),
+    tabltext(quotepeaks[compartment == "nonicu_p"]),
+    tabltext(quotepeaks[compartment == "icu_p"]),
+    tabltext(quotepeaks[compartment == "death_o"])
+  ),
+  `50% interval on peak timing in days (95% interval)` = c(
+    tabltext(outcomest[compartment == "cases"]),
+    tabltext(outcomest[compartment == "hosp_p"]),
+    "",
+    "",
+    tabltext(outcomest[compartment == "death_o"])
+  )
+)
+kable_styling(
+  kable(tabl, caption=sprintf("Overview of estimated peak impacts based on the population in %s. Attack rates of symptomatic disease given infection, death and hospitalisation given symptomatic disease are based on global estimates of those values. Relative rates of hospitalisation severity demands are also based on global estimates. Timing is in days from initial introduction to %s."), params$location, params$location),
+  latex_options = "HOLD_position"
+)
+```
 
 \blandscape
 
-```{r tsunmit, fig.height=6, out.width="10in", fig.width=10, fig.cap="Epidemics without intervention. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). All ages is given, and separated by age group."}
+```{r tsunmit, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Unmitigated epidemics in %s. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). Both summary and by age group results are provided; population on underlying age groups from demography of %s.", params$location, params$location)}
 
 age.annotate <- function(l) sprintf("%s\n%s",l,ifelse(l=="all","ages","years"))
 stagger <- function(l) {
@@ -149,7 +192,7 @@ stagger <- function(l) {
   l
 }
 
-xscale <- scale_x_t("Months since epidemic start", labels = function(b) sprintf("%i\n", b/30), breaks = c(90, 180, 270, 360))
+xscale <- scale_x_t(sprintf("Months since initial introduction in %s", params$location), labels = function(b) sprintf("%i\n", b/30), breaks = c(90, 180, 270, 360))
 
 sharedelements <- list(
   scale_color_discrete(guide = "none"),
@@ -205,15 +248,18 @@ tabpeak <- alls.dt[scen_id == 1,{
   v.hi = max(hi); t.hi = t[which.max(hi)]
   v.hh = max(hi.hi); t.hh = t[which.max(hi.hi)]
   .(
-    t=sprintf("%i-%i (%i-%i)", round(t.hi), round(t.lo), round(t.hh), round(t.ll)),
-    v=sprintf("%i-%i (%i-%i)", round(v.lo), round(v.hi), round(v.ll), round(v.hh))
+    t=sprintf("%s (%s)", rngprint(c(t.hi,t.lo)), rngprint(c(t.hh, t.ll))),
+    v=sprintf("%s (%s)", rngprint(c(v.lo,v.hi)), rngprint(c(v.ll,v.hh)))
   )},
   by=.(age, compartment)
-][,.(
-  Outcome=c(
+]
+reord(tabpeak)
+
+tabpeak <- tabpeak[order(compartment, age),.(
+  `Peak Outcomes`=c(
     cases="Incident Cases",
     death_o="Incident Deaths",
-    hosp_p="Total Hospital Occupancy",
+    hosp_p="Hospital Occupancy",
     nonicu_p="Non-critical Occupancy",
     icu_p="Critical Occupancy"
   )[as.character(compartment)],
@@ -221,19 +267,34 @@ tabpeak <- alls.dt[scen_id == 1,{
   `Peak Day, IQR (95% interval)`=t,
   `Peak Number, IQR (95% interval)`=v
 )]
-collapse_rows(kable(tabpeak, caption="Peak timing and values for various outcomes in the unmitigated scenario, by age group. Timing is from the date of ongoing community spread with 50 infections."))
+
+mkkbl <- function(tbl, caption, b = TRUE) row_spec(
+  collapse_rows(
+  kable(
+    tbl,
+    caption=caption
+    ), columns = 1, latex_hline = "major"
+  ),
+  seq(1, by=length(unique(tbl[[2]])), length.out = length(unique(tbl[[1]]))), bold = b
+)
+
+mkkbl(
+  tabpeak,
+  caption="Peak timing and values for main outcomes in the unmitigated scenario, by age group. Timing is from the date of initial introduction."
+)
 ```
 
 ```{r uncumulative1}
 outcome_cumulative <- c(
     cases="Cases",
     death_o="Deaths",
-    hosp_p="Total Hospital Bed-Days",
+    hosp_p="Hospital Bed-Days",
     nonicu_p="Non-critical Bed-Days",
-    icu_p="Critical Bed-Days"
+    icu_p="Critical Bed-Days",
+    E="Infections"
   )
 
-unmitacc <- params$unmitigated[
+unmitacc <- params$unmitigated[compartment != "E"][
   order(t),.(t, value=cumsum(value)),by=.(run, age, compartment)
 ][t %in% milestones,{
   qs <- quantile(value, probs = refprobs)
@@ -242,9 +303,11 @@ unmitacc <- params$unmitigated[
   sprintf("%s (%s)", iqr, i95)
 },by=.(age, compartment, t)]
 
+reord(unmitacc)
+
 unmitacctable1 <- dcast(unmitacc, age + compartment ~ t, value.var="V1")[
 order(compartment, age),.(
-  Outcome=outcome_cumulative[as.character(compartment)],
+  `Total Outcomes`=outcome_cumulative[as.character(compartment)],
   `Age Group`=sprintf("%s %s",as.character(age),ifelse(age=="all","ages","years")),
   `3 months`=`90`,
   `6 months`=`180`,
@@ -260,15 +323,15 @@ order(compartment, age),.(
 # )
 # ]
 
-landscape(collapse_rows(
-  kable(unmitacctable1, caption="Cumulative counts for various outcomes in the unmitigated scenario, by age group; counts are evaluated at 3, 6, and 9 months."),
-  columns = 1
+landscape(mkkbl(
+    unmitacctable1,
+    caption="Total counts for various outcomes in the unmitigated scenario, by age group; counts are evaluated at 3, 6, and 9 months from initial introduction."
 ))
 ```
 
 # Intervention Scenarios
 
-The panels in Fig. \@ref(fig:tsintervention) compare epidemics without intervention with 5 different potential interventions. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable); Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at particular milestones.
+The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable); Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at particular milestones.
 
 - We assumed these interventions are applied at the country level.
 - General physical distancing was implemented as a reduction in transmission for all contacts outside the household. We assumed no change in transmission within the household, despite some potential benefits (e.g., improved WASH compliance).
@@ -293,7 +356,7 @@ The total and % net reduction to cases, deaths, and hospitalised person-days in 
    - cases reduced by `r intbulltext(7, "cases")`
    - deaths reduced by `r intbulltext(7, "death_o")`
    - hospitalised bed-days reduced by `r intbulltext(7, "hosp_p")`
- - 40% distancing:
+ - 50% distancing:
    - cases reduced by `r intbulltext(9, "cases")`
    - deaths reduced by `r intbulltext(9, "death_o")`
    - hospitalised bed-days reduced by `r intbulltext(9, "hosp_p")`
@@ -305,7 +368,7 @@ The total and % net reduction to cases, deaths, and hospitalised person-days in 
    - cases reduced by `r intbulltext(80, "cases")`
    - deaths reduced by `r intbulltext(80, "death_o")`
    - hospitalised bed-days reduced by `r intbulltext(80, "hosp_p")`
- - 80% sheilding & 40% distancing:
+ - 80% sheilding & 50% distancing:
    - cases reduced by `r intbulltext(140, "cases")`
    - deaths reduced by `r intbulltext(140, "death_o")`
    - hospitalised bed-days reduced by `r intbulltext(140, "hosp_p")`
@@ -319,6 +382,7 @@ pks <- alls.dt[age=="all",{
   names(res) <- colnames(.SD)
   as.list(res)
 }, by=.(compartment, age, scen_id)]
+reord(pks)
 
 sharedelements <- list(
   scale_alpha_quantile(),
@@ -329,8 +393,11 @@ sharedelements <- list(
   )
 )
 
+int.qs <- meltquantiles(alls.dt[age=="all"])
+reord(int.qs)
+
 plot_grid(
-ggplotqs(meltquantiles(alls.dt[age=="all"]), aes(
+ggplotqs(int.qs, aes(
    color=factor(scen_id), group=variable, alpha=variable
 )) +
   facet_grid(compartment ~ scen_id, scale = "free_y", switch = "y", labeller = fct_labels(
@@ -373,28 +440,33 @@ tabpeak <- alls.dt[age=="all",{
     t=sprintf("%i-%i (%i-%i)", round(t.hi), round(t.lo), round(t.hh), round(t.ll)),
     v=sprintf("%i-%i (%i-%i)", round(v.lo), round(v.hi), round(v.ll), round(v.hh))
   )},
-  by=.(scen_id, compartment)
-][,.(
+  by=.(scen_id, compartment, age)
+]
+reord(tabpeak)
+
+tabpeak <- tabpeak[,.(
   Scenario=gsub(" &\n",", ",int.factorize(scen_id)),
-  Outcome=c(
+  `Total Outcomes`=c(
     cases="Incident Cases",
     death_o="Incident Deaths",
-    hosp_p="Total Hospital Occupancy",
+    hosp_p="Hospital Occupancy",
     nonicu_p="Non-critical Occupancy",
     icu_p="Critical Occupancy"
   )[as.character(compartment)],
   `Day 50% (95%)`=t,
   `Count 50% (95%)`=v
 )]
-collapse_rows(kable(tabpeak, caption="Peak timing and values for various outcomes, by intervention scenario. Timing is from the date of ongoing community spread with 50 infections."))
+mkkbl(tabpeak, caption="Peak timing and values for main outcomes, by intervention scenario. Timing is from the date of ongoing community spread with 50 infections.", b = FALSE)
 ```
 
 ```{r intcumulative1}
-intacc <- params$accs[metric == "reduction" & age == "all" & scen_id %in% scens][,{
-  iqr <- rngprint(c(lo50,hi50))
-  i95 <- rngprint(c(lo95,hi95))
+intacc <- params$accs[compartment != "E"][metric == "reduction" & age == "all" & scen_id %in% scens][,{
+  iqr <- rngprint(c(lo, hi))
+  i95 <- rngprint(c(lo.lo,hi.hi))
   sprintf("%s (%s)", iqr, i95)
 },by=.(age, compartment, t, scen_id)]
+
+reord(intacc)
 
 intacctable1 <- dcast(intacc, scen_id + compartment ~ t, value.var="V1")[
 ,.(
@@ -414,8 +486,10 @@ intacctable1 <- dcast(intacc, scen_id + compartment ~ t, value.var="V1")[
 # )
 # ]
 
-landscape(collapse_rows(
-  kable(intacctable1, caption="Cumulative reductions for various outcomes by intervention scenario; reductions are evaluated at 3, 6, and 9 months."), columns = 1
+landscape(mkkbl(
+  intacctable1,
+  caption="Cumulative reductions for various outcomes by intervention scenario; reductions are evaluated at 3, 6, and 9 months.",
+  b = FALSE
 ))
 ```
 

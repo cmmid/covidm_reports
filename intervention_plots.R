@@ -4,21 +4,6 @@ suppressPackageStartupMessages({
   require(ggplot2)
 })
 
-#select correct scenario index for figures and tables
-
-#Table strategies main, key outcomes over time
-scens <- c(10, 4, 5, 11, 6)
-
-#Table strategies lockdown, key outcomes over time
-#scens <- c(12, 7, 8, 13, 9)
-
-#Table strategies no self isolation
-#scens <- c(18, 15, 16, 19, 17)
-
-#unmitigated
-#scens <- c(1)
-
-
 .args <- if (interactive()) c(
   "~/Dropbox/covidm_reports/interventions/inputs/scenarios.rds",
   "~/Dropbox/covidm_reports/interventions/inputs/scenarios_overview.rds",
@@ -28,26 +13,28 @@ scens <- c(10, 4, 5, 11, 6)
 scendata <- readRDS(.args[1])
 scenkey <- readRDS(.args[2])
 
-w20 <- scendata[[3]][, which(gen_socdist_other == 0.8 & gen_socdist_stop == 9)]
-w40 <- scendata[[3]][, which(gen_socdist_other == 0.6 & gen_socdist_stop == 9)]
-sheild80 <- scendata[[4]][, which(hirisk_prop_isolated == 0.8 & hirisk_lorisk_contact == 0.2 & hirisk_contact == 1.0)]
-sheildplusdist <- scendata[[5]][,which(hirisk_prop_isolated == 0.8 & hirisk_lorisk_contact == 0.2 & hirisk_contact == 1.0)]
+# w20 <- scendata[[3]][, which(gen_socdist_other == 0.8 & gen_socdist_stop == 9)]
+# w40 <- scendata[[3]][, which(gen_socdist_other == 0.6 & gen_socdist_stop == 9)]
+# sheild80 <- scendata[[4]][, which(hirisk_prop_isolated == 0.8 & hirisk_lorisk_contact == 0.2 & hirisk_contact == 1.0)]
+# sheildplusdist <- scendata[[5]][,which(hirisk_prop_isolated == 0.8 & hirisk_lorisk_contact == 0.2 & hirisk_contact == 1.0)]
+# 
+# scens <- c(
+#   scenkey[scen == 3 & s %in% c(w20, w40), index],
+#   scenkey[scen == 4 & s == sheild80, index],
+#   scenkey[scen == 5 & s %in% sheildplusdist, index]
+# )
 
-scens <- c(
-  scenkey[scen == 3 & s %in% c(w20, w40), index],
-  scenkey[scen == 4 & s == sheild80, index],
-  scenkey[scen == 5 & s %in% sheildplusdist, index]
-)
+scens <- 2:6
 
 source("./plotting_support.R")
 
 int.factorize <- function(s) factor(s, c(1, scens), c(
   "Unmitigated",
   "20% distancing",
-  "40% distancing",
+  "50% distancing",
   "80% shielding",
   "80% shielding &\n20% distancing",
-  "80% shielding &\n40% distancing"
+  "80% shielding &\n50% distancing"
 ))
 
 int.fct <- facet_grid(
