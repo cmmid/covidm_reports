@@ -31,7 +31,7 @@ expander <- data.table(expand.grid(
 inc.expander <- data.table(expand.grid(
   run=1:max(ref$run),
   age=factor(c(levels(ref$age), "all"), ordered = TRUE),
-  compartment=c("cases","death_o"),
+  compartment=c("cases","death_o", "E"),
   t=1:365
 ))
 
@@ -39,6 +39,13 @@ prev.expander <- data.table(expand.grid(
   run=1:max(ref$run),
   age=factor(c(levels(ref$age), "all"), ordered = TRUE),
   compartment=c("nonicu_p","icu_p"),
+  t=1:365
+))
+
+all.expand <- data.table(expand.grid(
+  run=1:max(ref$run),
+  age=factor(c(levels(ref$age), "all"), ordered = TRUE),
+  compartment=c("cases","death_o", "E","hosp_p","nonicu_p","icu_p"),
   t=1:365
 ))
 
@@ -95,7 +102,7 @@ peak_value <- function(dt, comp = "cases") {
 
 cumul <- function(dt, comp = "cases") {
   tmp <- dt[compartment == comp][order(t),.(t, value = cumsum(value)), keyby=.(run, age)]
-  retadd <- dt[compartment == comp][,.(value = sum(value)), keyby=.(run, t)][, .(age="all", t, value=cumsum(value)), keyby=.(run)]
+  retadd <- dt[compartment == comp][,.(value = sum(value)), keyby=.(run, t)][order(t), .(age="all", t, value=cumsum(value)), keyby=.(run)]
   ret <- rbind(tmp, retadd)[expander, on=.(run, age, t), roll = TRUE, rollends = c(F, F)]
   setkey(ret[!is.na(value)], run, t, age)[, compartment := comp ][, measure := "acc" ]
 }
@@ -136,6 +143,10 @@ calcAll <- function(dt) {
 
 refvalues <- calcAll(ref)
 
+accref <- refvalues[measure == "acc"][all.expand, on=.(run, compartment, age, t), roll = T, rollends = c(F, T)]
+accref[is.na(value), value := 0 ]
+accref[is.na(measure), measure := "acc" ]
+
 peaks <- list()
 accs <- list()
 alls <- list(full(ref, 1))
@@ -174,7 +185,7 @@ for (ind in seq_along(simfns[-1])) {
   compar_acc <- scenres[
     measure == "acc"
   ][
-    refvalues[measure == "acc"], on=.(run, compartment, age, measure, t), roll = T, rollends = c(F, T)
+    accref, on=.(run, compartment, age, measure, t), roll = T, rollends = c(F, T)
   ][t %in% c(30, 60, 90, 180, 270, 360)]
   compar_acc[is.na(value), value := 0 ]
 
