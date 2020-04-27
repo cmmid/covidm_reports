@@ -96,14 +96,14 @@ This report provides simulation-based estimates for COVID-19 epidemic scenarios 
 
 - We use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic in `r params$location`.
 - We consider scenarios for an unmitigated epidemic (*i.e.*, no intervention), and combinations of social distancing and shielding interventions to decrease transmission.
-- We estimate predicted peak counts and timing for `r params$location` in incident symptomatic cases, deaths and daily hospital bed need, and calculate the impact of the interventions relative to an unmitigated epidemic.
+- We estimate predicted peak counts and timing for `r params$location` in new symptomatic cases and deaths per day, and total hospital bed need each day. We calculate the impact of  interventions relative to an unmitigated epidemic.
 - Transmission parameters, including severity and hospitalisation rates, are based on global outbreak data, which have primarily been observed in Asia, Europe, and North America. These values implicitly assume risk factor rates and health service system effectiveness which may not apply generally in lower-middle income settings.
 - Population parameters are based on demographics of `r params$location` and estimated contact matrices, and assume a single national population
-- We assume the outbreak is seeded with 50 initial infections, proportionally distributed according to the age demography of `r params$location`. We refer to this day 0 as the *initial introduction*.
-- These reports will be updated as `r params$location`-specific details become available, *e.g.*: local parameter estimates, appropriate timing and number of initial introductions, appropriate sub-national populations, and planned or executed interventions are available.
+- We assume the outbreak is seeded with 50 initial infections, proportionally distributed according to the age demography of `r params$location`. We refer to this day 0 as the *initial introduction*. So dates should be counted from when `r params$location` reaches 50 cases.
+- Numerical results are reported to two significant figures, and interquartile and 95% intervals are reported.
+- These reports will be updated as information changes, and if locally-specific information on hospitalisation rates become available.
 - Modelling methods and parameters are given at the end of the report.
 
-**All numerical results are reported to two significant figures only, and reported as interquartile and 95% intervals.**
 
 # Unmitigated COVID-19 Epidemic Trajectory
 
@@ -350,7 +350,7 @@ landscape(mkkbl(
 
 # Intervention Scenarios
 
-The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable); Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction.
+The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The quantiles for peak timing and values for those outcomes are summarised in Table \@ref(tab:intpeakstable); Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction.
 
 - We assumed these interventions are applied at the country level.
 - General physical distancing was implemented as a reduction in transmission for all contacts outside the household. We assumed no change in transmission within the household, despite some potential benefits (e.g., improved WASH compliance).
