@@ -5,12 +5,12 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  sprintf("~/Dropbox/covidm_hpc_output/caboverde/%s.qs",c("001","alls","accs","peak")),
+  sprintf("~/Dropbox/covidm_hpc_output/uganda/%s.qs",c("001","alls","accs","peak")),
   "report-template-alt.Rmd",
   "plotfuns.rda", "intplots.rda", "plotpars.rda",
   "~/Dropbox/covidm_reports/interventions/inputs",
   "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
-  "caboverde/report.pdf"
+  "uganda/report.pdf"
 ) else commandArgs(trailingOnly = TRUE)
 
 # first 4 args
@@ -71,6 +71,8 @@ if (length(contact_matrices) != 4) {
   refcm$work <- refcm$work/length(contact_matrices)
   refcm$school <- refcm$school/length(contact_matrices)
   refcm$other <- refcm$other/length(contact_matrices)
+} else {
+  refcm <- contact_matrices
 }
 
 poppyra <- with(base_params, data.table(
@@ -117,7 +119,7 @@ poppyra[, per_by_age := per_by_age / sum(pop)]
   peaks = peak.int,
   accs = accs.int,
   alls = all.quan,
-  contactmatrices = contact_matrices,
+  contactmatrices = refcm,
   poppyra = poppyra,
   plothelpers = plothelpers,
   is_analogy = is_analogy
