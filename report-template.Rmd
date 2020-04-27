@@ -549,20 +549,21 @@ We collated multiple sources of evidence to estimate key model parameters (Table
 
 ```{r echo=FALSE}
 parameter_set_df <- data.frame(matrix(c(
-  "Basic reproductive rate", "$R_0$", "Sampled PERT distribution", "$\\mu = 2.7$", "1.6–3.9", "assumed",
-  "Age-specific clinical fraction", "$y_i$", "Fixed", "Age-dependent", "0.1-0.2", "\\citep{daviesage2020}",
-  "Relative infectiousness\nof subclinical cases", "$f$", "Fixed", "$0.5*y_i$", "0.1-0.5", "\\citep{daviesage2020}",
-  "Case fatality ratio", "CFR", "Normal", "$\\mu = 0.5$", "0.001-0.077", "assumed",
+  "Basic reproductive rate", "$R_0$", "Normal", "$\\mu = 2.6$", "1.6–3.9", "\\citep{davies2020}",
+  "Age-specific clinical fraction", "$y_i$", "Fixed", "Age-dependent", "0.3-0.8", "\\citep{daviesage2020}",
+  "Relative infectiousness\nof subclinical cases", "$f$", "Fixed", "50\\%", "0.5", "Assumed",
   "Serial interval", "SI", "Normal", "$\\mu = 6.5$, $\\sigma = 2.7$", "5.5-7.6 days", "\\citep{li2020early, bi2020epidemiology, nishiura2020serial}",
-  "Length of preclinical period", "l", "Fixed", "30\\%", "0.3", "\\citep{liu2020contribution}",
   "Mean latent period", "p", "Fixed", "4 days", "4", "\\citep{liu2020contribution}",
   "Mean duration of\npreclinical infectiousness", "$t_p$", "Fixed", "1.5", "1.5 days", "\\citep{liu2020contribution}",
   "Mean duration of\nclinical infectiousness", "$t_c$", "Fixed", "3.5", "1.5 days", "\\citep{liu2020contribution}",
-  "Mean latent period", "p", "Fixed", "4 days", "4", "\\citep{liu2020contribution}",
   "Delay from symptom\nonset to hospitilisation", "$d_h$", "Gamma", paste0("$k=7$, $\\Theta=", round(7 / 2.65^2, 2), "$"), paste0(round(qgamma(0.025, shape = 7, scale = 8 / 2.83^2)), "-", round(qgamma(0.975, shape = 7, scale = 7 / 2.65^2), 2), " days"), "\\citep{linton2020incubation, cao2020trial}",
   "Delay from hospitilisation\nto discharge/death (non-ICU)", "$d_d$", "Gamma", paste0("$k=8$, $\\Theta=", round(8 / 2.83^2, 2), "$"), paste0(round(qgamma(0.025, shape = 8, scale = 8 / 2.83^2)), "-", round(qgamma(0.975, shape = 8, scale = 8 / 2.83^2), 2), " days"), "\\citep{NHSDigital}",
   "Delay from hospitilisation\nto discharge/death (ICU)", "$d_{icu}$", "Gamma", paste0("$k=10$, $\\Theta=", round(10 / 3.16^2, 2), "$"), paste0(round(qgamma(0.025, shape = 10, scale = 3.16)), "-", round(qgamma(0.975, shape = 10, scale = 10 / 3.16^2), 2), " days"), "\\citep{cao2020trial}",
-  "Delay from onset\nto death (ICU)", "$d_{tot}$", "Gamma", paste0("$k=22$, $\\Theta=", round(22 / 4.69^2, 2), "$"), paste0(round(qgamma(0.025, shape = 22, scale = 22 / 4.69^2)), "-", round(qgamma(0.975, shape = 22, scale = 22 / 4.69^2), 2), " days"), "\\citep{linton2020incubation, cao2020trial}"
+  "Delay from onset\nto death (ICU)", "$d_{tot}$", "Gamma", paste0("$k=22$, $\\Theta=", round(22 / 4.69^2, 2), "$"), paste0(round(qgamma(0.025, shape = 22, scale = 22 / 4.69^2)), "-", round(qgamma(0.975, shape = 22, scale = 22 / 4.69^2), 2), " days"), "\\citep{linton2020incubation, cao2020trial}",
+  "Risk of becoming a severe case", "hosp", "Fixed", "Age-dependent", "0.0-61.8", "\\citep{davies2020, vzandvoort2020}",
+  "Proportion hospitalised who are critical", "l", "Fixed", "30\\%", "0.3", "\\citep{liu2020contribution, vzandvoort2020}",
+  "Case fatality ratio severe cases", "CFRs", "Fixed", "Age-dependent", "0.0-11.5", "\\citep{davies2020, vzandvoort2020}",
+  "Case fatality ratio critical cases", "CFRc", "Fixed", "75\\%", "0.75", "assumed"
 ),
 ncol = 6, byrow = TRUE
 ))
