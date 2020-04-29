@@ -22,6 +22,7 @@ LMIC.txt: create_reference_countries.R ${INTINPUTDIR}/../generation_data/data_co
 LMICroots.txt: LMIC.txt
 	sed "s/[^a-zA-Z]//g" $^ > $@-tmp
 	tr '[:upper:]' '[:lower:]' < $@-tmp > $@
+	rm $@-tmp
 
 
 ###############################################################################

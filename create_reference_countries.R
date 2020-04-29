@@ -28,7 +28,23 @@ lmic.countries <- c(
   "Nigeria", "Reunion", "Rwanda", "Senegal", "Seychelles",
   "Sierra Leone", "Somalia", "South Africa", "South Sudan",
   "Sudan", "Tunisia", "Uganda", "United Republic of Tanzania",
-  "Western Sahara", "Zambia", "Zimbabwe", "Cambodia", "Afghanistan"
+  "Western Sahara", "Zambia", "Zimbabwe", "Cambodia", "Afghanistan",
+  "Algeria",
+  "Bahrain",
+  "Iran",
+  "Iraq",
+  "Israel",
+  "Jordan",
+  "Kuwait",
+  "Lebanon",
+  "Oman",
+  "Palestine",
+  "Qatar",
+  "Saudi Arabia",
+  "Syrian Arab Republic",
+  "Turkey",
+  "United Arab Emirates",
+  "Yemen"
 )
 
 ref_pops <- readRDS(sprintf("%s/data/wpp2019_pop2020.rds", cm_path))
@@ -38,8 +54,9 @@ ref_cm <- readRDS(sprintf("%s/data/all_matrices.rds", cm_path))
 missing_cm <- setdiff(lmic.countries, names(ref_cm))
 noreplacements <- setdiff(missing_cm, ref$name)
 
+notavail <- setdiff(unique(c(noreplacements, missing_pop)), ref$name)
 
-fnl.countries <- setdiff(lmic.countries, unique(c(noreplacements, missing_pop)))
+fnl.countries <- setdiff(lmic.countries, notavail)
 
 write.table(fnl.countries, file=tail(.args, 1), row.names = F, col.names = F, quote = F)
 
