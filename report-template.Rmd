@@ -26,6 +26,7 @@ params:
   is_analogy: "`r NA_character_`"
 title: "`r sprintf('Modelling projections for COVID-19 epidemic in %s', params$location)`"
 bibliography: COVID.bib
+biblio-style: unsrtnat
 header-includes:
   - \usepackage{booktabs}
   - \usepackage{longtable}
@@ -42,10 +43,14 @@ header-includes:
   - \usepackage[square,numbers,sort&compress]{natbib}
   - \newcommand{\blandscape}{\begin{landscape}}
   - \newcommand{\elandscape}{\end{landscape}}
+  - \usepackage{titling}
+  - \pretitle{\vspace{\bigskipamount}\begin{center}\LARGE}
+  - \posttitle{\end{center}}
 editor_options: 
   chunk_output_type: console
 ---
 ```{r echo=FALSE, include=FALSE}
+# TODO for images, in pretitle: \LARGE\includegraphics[width=12cm]{my_graphic.png}
 knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE)
 ```
 
@@ -94,16 +99,18 @@ typicalfmt <- "%s~~(%s)"
 
 This report provides simulation-based estimates for COVID-19 epidemic scenarios in `r params$location`. In this model, we use a population of `r mk(sum(params$poppyra$pop))` in `r params$location`, with an average age of `r signif(params$poppyra[, sum(per_by_group[-.N]*seq(2,by=5,length.out = .N-1))+per_by_group[.N]*87.5], 3)`, based on [@wpp;@wpprepo].
 
-- We use a stochastic age-structured dynamic transmission model to project the COVID-19 epidemic in `r params$location`.
-- We consider scenarios for an unmitigated epidemic (*i.e.*, no intervention), and combinations of social distancing and shielding interventions to decrease transmission.
-- We estimate predicted peak counts and timing for `r params$location` in incident symptomatic cases, deaths and daily hospital bed need, and calculate the impact of the interventions relative to an unmitigated epidemic.
-- Transmission parameters, including severity and hospitalisation rates, are based on global outbreak data, which have primarily been observed in Asia, Europe, and North America. These values implicitly assume risk factor rates and health service system effectiveness which may not apply generally in lower-middle income settings.
-- Population parameters are based on demographics of `r params$location` and estimated contact matrices, and assume a single national population
-- We assume the outbreak is seeded with 50 initial infections, proportionally distributed according to the age demography of `r params$location`. We refer to this day 0 as the *initial introduction*.
-- These reports will be updated as `r params$location`-specific details become available, *e.g.*: local parameter estimates, appropriate timing and number of initial introductions, appropriate sub-national populations, and planned or executed interventions are available.
-- Modelling methods and parameters are given at the end of the report.
+- We use a transmission model to project the COVID-19 epidemic in `r params$location`; it accounts for the local age structure, as well as uncertainty in transmission due to uncertainty in $R_0$ and randomness in the process.
+- We consider an unmitigated epidemic (*i.e.*, no intervention), and then interventions combining  social distancing and shielding interventions to decrease transmission.
+- We estimate predicted peak counts and timing for `r params$location` in new symptomatic cases and deaths (incidence), as well as peaks in daily required hospital beds (prevalence). We also calculated totals for these values, and compute the impact of the interventions relative to an unmitigated epidemic.
+- Populations are based on demographics of `r params$location` and estimated contact patterns, and assume a single national population
+- The transmission model is based on global outbreak data, which have primarily been observed in Asia, Europe, and North America.
+- Severity rates are rescaled from the global setting. We assume that due to comorbidities, lower-middle income populations will have less benefit from age and will in general have higher rates of symptomatic disease.
+- We start the epidemic simulation with 50 initial infections, proportionally distributed according to the age demography of `r params$location`. We refer to this day 0 as the *initial introduction*. This corresponds roughly to when there were roughly 50 active infections in `r params$location`; due to under-reporting and subclinical disease, this cannot be directly determined from reported cases.
+- These reports will be updated as information changes, and if `r params$location`-specific information on hospitalisation rates become available.
+- All numerical results are reported to two significant figures only, and are reported as interquartile (IQR) and 95% intervals.
+- Detailed modelling methods are given at the end of the report.
 
-**All numerical results are reported to two significant figures only, and reported as interquartile and 95% intervals.**
+*Please direct correspondence regarding these reports to [carl.pearson@lshtm.ac.uk](mailto:carl.pearson@lshtm.ac.uk). Source available at [https://github.com/cmmid/covidm_reports](https://github.com/cmmid/covidm_reports).*
 
 # Unmitigated COVID-19 Epidemic Trajectory
 
@@ -111,14 +118,14 @@ The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes f
 
 ```{r}
 unmit.q <- meltquantiles(params$alls[scen_id == 1])
-unmit.q$age <- factor(unmit.q$age, levels = levels(unmit.q$age)[c(6,5,1:4)], ordered = TRUE)
+unmit.q$age <- factor(unmit.q$age, levels(unmit.q$age)[c(6,1:5)])
 reage <- function(a, lvls = levels(unmit.q$age)) factor(a, levels = lvls, ordered = TRUE)
-unmit.q$compartment <- factor(unmit.q$compartment, levels = levels(unmit.q$compartment)[c(1,5,3:4,2)], ordered = TRUE)
+unmit.q$compartment <- factor(unmit.q$compartment, levels = levels(unmit.q$compartment)[c(3,1,6,4:5,2)], ordered = TRUE)
 recomp <- function(cmp, lvls = levels(unmit.q$compartment)) factor(cmp, levels = lvls, ordered = TRUE)
 
 reord <- function(dt) dt[, age := reage(age) ][, compartment := recomp(compartment) ]
 
-unmit.pks <- params$alls[scen_id == 1][,{
+unmit.pks <- params$alls[scen_id == 1 & compartment != "E"][,{
   res <- apply(.SD, 2, max)
   names(res) <- colnames(.SD)
   as.list(res)
@@ -144,8 +151,25 @@ down <- function(v, sf = 2) {
   } else v
 }
 
+numfmt <- function(n) if(n>=1e6) {
+  sprintf("%sM",format(n/1e6, big.mark = ",", scientific = FALSE))
+} else if(n>=1e3) {
+  sprintf("%sK",format(n/1e3, big.mark = ",", scientific = FALSE))
+} else {
+  format(n, big.mark = ",", scientific = FALSE)
+}
+
 rngprint <- function(r, prefix="") {
-  ifelse(down(r[1])==up(r[2]),format(signif(r[1],2),big.mark = ",",scientific = FALSE), sprintf("%s%s - %s",prefix,format(down(r[1]), big.mark = ",",scientific = FALSE), format(up(r[2]),  big.mark = ",",scientific = FALSE)))
+  same <- down(r[1])==up(r[2])
+  ifelse(
+    same,
+    numfmt(signif(r[1],2)),
+    sprintf(
+      "%s%s - %s", prefix,
+      numfmt(down(r[1])),
+      numfmt(up(r[2]))
+    )
+  )
 }
 bullettext <- function(filterdt) {
   paste0(rngprint(filterdt[,c(lo,hi)],"between ")," (95%: ",rngprint(filterdt[,c(lo.lo,hi.hi)]),")")
@@ -154,14 +178,16 @@ tabltext <- function(filterdt) {
   sprintf(typicalfmt, rngprint(filterdt[,c(lo,hi)]), rngprint(filterdt[,c(lo.lo,hi.hi)]))
 }
 outcomesc <- params$alls[
-  scen_id == 1 & age == "all"][,{
+  scen_id == 1 & age == "all" & compartment != "E"
+][,{
   vs <- colSums(.SD)
   names(vs) <- colnames(.SD)
   as.list(vs)
   },by=compartment,.SDcols = -c("age", "t", "scen_id")
 ]
 outcomest <- params$alls[
-  scen_id == 1 & age == "all"][,{
+  scen_id == 1 & age == "all" & compartment != "E"
+][,{
   vs <- t[apply(.SD, 2, which.max)]
   names(vs) <- rev(colnames(.SD))
   as.list(vs)
@@ -207,7 +233,7 @@ boldL(kable_styling(
 
 \blandscape
 
-```{r tsunmit, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Unmitigated epidemics in %s. Time series and peak sizes for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). Both summary and by age group results are provided; population on underlying age groups from demography of %s.", params$location, params$location)}
+```{r tsunmit, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Unmitigated epidemics in %s. Time series and peak sizes for new symptomatic cases and deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). Both summary and by age group results are provided; population and underlying age groups from demography of %s. The different line transparency denotes different simulation quantiles; the lightest lines correspond to the 95\\%% interval, then darker the IQR, then the solid line the median. Cases and deaths reflect new daily events (incidence), while hospital occupancy reflects the number in hospital on that day (prevalence).", params$location, params$location)}
 
 age.annotate <- function(l) sprintf("%s\n%s",l,ifelse(l=="all","ages","years"))
 stagger <- function(l) {
@@ -216,18 +242,23 @@ stagger <- function(l) {
   l
 }
 
-xscale <- scale_x_t(sprintf("Months since initial introduction in %s", params$location), labels = function(b) sprintf("%i\n", b/30), breaks = milestones)
+xscale <- function(
+  name=sprintf("Months since initial introduction in %s", params$location),
+  breaks = milestones,
+  labels = function(b) sprintf("%i\n", b/30)
+) scale_x_t(name=name, labels = labels, breaks = breaks)
 
 sharedelements <- list(
   scale_color_discrete(guide = "none"),
   scale_alpha_quantile(),
-  theme_minimal(base_size = 10),
+  theme_minimal(base_size = 9.5),
+  scale_y_continuous(labels = scales::label_number_si()),
   theme(
     panel.spacing.y = unit(12, "pt")
   )
 )
 
-plot_grid(ggplotqs(unmit.q, aes(
+plot_grid(ggplotqs(unmit.q[compartment != "E"], aes(
   alpha = variable,
   color = "Unmitigated"
 )) +
@@ -239,7 +270,7 @@ plot_grid(ggplotqs(unmit.q, aes(
     switch = "y"
   ) +
   sharedelements +
-  xscale +
+  xscale() +
   coord_cartesian(ylim = c(0, NA), expand = F) +
   theme(
     strip.placement = "outside",
@@ -265,7 +296,7 @@ int.peaks.all(unmit.pks, aes(x=age), range.scale = c(1, 1.5, 2)) + facet_grid(
 \elandscape
 
 ```{r unpeakstable}
-tabpeak <- alls.dt[scen_id == 1,{
+tabpeak <- alls.dt[scen_id == 1 & compartment != "E",{
   v.ll = max(lo.lo); t.ll = t[which.max(lo.lo)]
   v.lo = max(lo); t.lo = t[which.max(lo)]
   v.md = max(med); t.md = t[which.max(med)]
@@ -304,7 +335,7 @@ mkkbl <- function(tbl, b = TRUE, ...) boldL(row_spec(
 
 mkkbl(
   tabpeak,
-  caption=sprintf("Peak timing and values for main outcomes in %s for the unmitigated scenario, by age group. Timing is from the date of initial introduction.", params$location),
+  caption=sprintf("Peak timing and values for main outcomes in %s for the unmitigated scenario, by age group. Timing is days from the date of initial introduction.", params$location),
   escape = FALSE
 )
 ```
@@ -350,11 +381,11 @@ landscape(mkkbl(
 
 # Intervention Scenarios
 
-The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The quantiles for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable); Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction.
+The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The IQR and 95% intervals for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable). Fig. \@ref(fig:cumtsint) shows the relative trajectories in total outcomes, with Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction. Note that these reduction may rise and decline with time: as Fig. \@ref(fig:cumtsint) shows, some interventions have large initial impact by delaying an epidemic, but ultimately many of the cases still happen.
 
 - We assumed these interventions are applied at the country level.
-- General physical distancing was implemented as a reduction in transmission for all contacts outside the household. We assumed no change in transmission within the household, despite some potential benefits (e.g., improved WASH compliance).
-- Shielding was implemented by stratifying the population in one shielded and one unshielded compartment. Shielding applies to those aged 60+ years, and we assume the adoption rate is 80%. In `r params$location`, this 80% corresponds to `r mk(params$poppyra[age == "60+", sum(pop)*.8])` individuals  or `r mk(params$poppyra[age == "60+", round(unique(per_by_age)*.8*100)])`% of the population. In the presence of shielding, mixing between the shielded and unshielded population reduces by 80%. To be effective, shielding must be maintained until the epidemic is over and must ensure that there is not increased mixing amongst the shielded population.
+- General physical distancing was implemented as a reduction in contacts, and thus transmission, for all interactions outside the household. We assumed no change in transmission within the household.
+- Shielding was implemented by stratifying the population in one shielded and one unshielded compartment. Shielding applies to those aged 60+ years, and we assume the adoption rate is 80%. In `r params$location`, this 80% corresponds to `r mk(params$poppyra[age == "60+", sum(pop)*.8])` individuals  or `r mk(params$poppyra[age == "60+", round(unique(per_by_age)*.8*100)])`% of the population. In the presence of shielding, mixing between the shielded and unshielded population reduces by 80%. To be effective, shielding must be maintained until the epidemic is over and must ensure that there is not substantially increased mixing amongst the shielded population.
 ```{r}
 effref <- params$accs[compartment != "E"][metric == "effectiveness" & age == "all" & t == 360 & scen_id %in% scens]
 reord(effref)
@@ -389,8 +420,8 @@ boldL(kable_styling(
 
 \blandscape
 
-```{r tsintervention, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Epidemics in %s with interventions for all ages. Time series and peak counts for incidence of symptomatic cases, incidence of deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care).", params$location)}
-pks <- alls.dt[age=="all",{
+```{r tsintervention, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Epidemics in %s with interventions for all ages. Time series and peak counts for new symptomatic cases and deaths, general ward hospital occupancy, critical care hospital occupancy, and total hospital occupancy (general ward plus critical care). The different line transparency denotes different simulation quantiles; the lightest lines correspond to the 95\\%% interval, then darker the IQR, then the solid line the median. Cases and deaths reflect new daily events (incidence), while hospital occupancy reflects the number in hospital on that day (prevalence).", params$location)}
+pks <- alls.dt[age=="all" & compartment != "E",{
   res <- apply(.SD, 2, max)
   names(res) <- colnames(.SD)
   as.list(res)
@@ -400,13 +431,14 @@ reord(pks)
 sharedelements <- list(
   scale_alpha_quantile(),
   coord_cartesian(ylim = c(0, NA), expand = F),
-  theme_minimal(base_size = 10),
+  scale_y_continuous(labels = scales::label_number_si()),
+  theme_minimal(base_size = 9.5),
   theme(
     panel.spacing.y = unit(12, "pt")
   )
 )
 
-int.qs <- meltquantiles(alls.dt[age=="all"])
+int.qs <- meltquantiles(alls.dt[age=="all" & compartment != "E"])
 reord(int.qs)
 
 plot_grid(
@@ -416,7 +448,7 @@ ggplotqs(int.qs, aes(
   facet_grid(compartment ~ scen_id, scale = "free_y", switch = "y", labeller = fct_labels(
     scen_id = { res <- levels(int.factorize(c(1, scens))); names(res) <- c(1, scens); res }
   )) +
-  xscale +
+  xscale() +
   scale_color_discrete(guide = "none") +
   sharedelements +
   theme(
@@ -442,8 +474,86 @@ int.peaks.all(pks, range.scale = c(1, 1.5, 2)) + facet_grid(
 
 \elandscape
 
+\blandscape
+
+```{r cumtsint, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Trajectories for cumulative outcomes in %s. The ribbons correspond to the 95\\%% intervals (lightest) and IQR (darker), with solid lines for the median. Note that some interventions have large initial impact by delaying an epidemic, but ultimately many of the cases still happen; when comparing interventions to an unmitigated epidemic, this leads to large initial reduction in total cases, which later declines.", params$location)}
+
+accs.dt <- params$alls[compartment != "E" & age == "all" & scen_id %in% c(1, scens)]
+
+cum.qs <- accs.dt[order(t),{
+  .(t, lo.lo=cumsum(lo.lo), lo=cumsum(lo), med=cumsum(med), hi=cumsum(hi), hi.hi = cumsum(hi.hi))
+}, keyby=.(scen_id, compartment, age)]
+
+reord(cum.qs)
+
+pks <- cum.qs[t %in% milestones, {
+  res <- apply(.SD, 2, max)
+  names(res) <- colnames(.SD)
+  as.list(res)
+}, by=.(compartment, age, scen_id, t)]
+reord(pks)
+
+sharedelements <- list(
+  scale_y_continuous(labels = scales::label_number_si()),
+  theme_minimal(base_size = 9.5),
+  theme(
+    panel.spacing.y = unit(12, "pt")
+  )
+)
+
+range.scale = c(1, 1.5, 2)
+
+plot_grid(
+ggplot(cum.qs) + aes(
+  t, med,
+  fill = factor(scen_id)
+) +
+  geom_ribbon(aes(ymin=lo.lo, ymax=hi.hi, alpha = "r95")) +
+  geom_ribbon(aes(ymin=lo, ymax=hi, alpha = "r50")) +
+  geom_line(aes(alpha = "med", color = factor(scen_id))) +
+  facet_grid(compartment ~ "Cumulative Total Count", scale = "free_y", switch = "y", labeller = fct_labels(compartment = c(
+    cases="Total Cases",
+    hosp_p="All Hospital\nBed-Days",
+    nonicu_p="General Hospital\nBed-Days",
+    icu_p="Critical Care\nBed-Days",
+    death_o="Total Deaths"
+  ))) +
+  coord_cartesian(ylim = c(0, NA), xlim = c(90, 360), expand = F) +
+  xscale() +
+  scale_color_discrete(guide = "none", aesthetics = c("fill","color")) +
+  scale_alpha_manual(values=c(r95=0.2,r50=0.2,med=1), guide = "none") +
+  sharedelements +
+  theme(
+    strip.placement = "outside",
+    axis.title.y = element_blank(),
+    plot.margin = margin(l = 12)
+  ),
+ggplot(pks) +
+    aes(as.numeric(factor(scen_id))+(t/30-7.5)/18, med, color=int.factorize(scen_id)) +
+    geom_linerange(aes(ymin=lo.lo, ymax=hi.hi, alpha="hi.hi"),  size = range.scale[1]) +
+    geom_linerange(aes(ymin=lo, ymax=hi, alpha="hi"), size = range.scale[2]) +
+    geom_point(aes(y=med, alpha="med"), size = range.scale[3]) +
+    scale_color_discrete(NULL, guide = "none") +
+    coord_cartesian(ylim = c(0, NA), expand = F) + facet_grid(
+  compartment ~ "Total Values at 3, 6, 9, and 12 Months", scales = "free_y", labeller = labeller(compartment = function(l) rep("",length(l)))
+) + sharedelements +
+  coord_cartesian(ylim = c(0, NA), expand = F, clip = "off") +
+  scale_x_continuous("", breaks = 1:c(length(scens)+1), labels = int.factorize(c(1,scens)) ) +
+  scale_alpha_manual(values = c(0.2, 0.2, 1), guide = "none") +
+  theme(
+      axis.title.y = element_blank(),
+      legend.key.size = unit(24, "pt"),
+      strip.text.y = element_blank(),
+      plot.margin = margin(r=unit(24,"pt"))
+    ),
+  axis = "l", align = "v", rel_widths = c(2, 3)
+)
+```
+
+\elandscape
+
 ```{r intpeakstable}
-tabpeak <- alls.dt[age=="all",{
+tabpeak <- alls.dt[age=="all" & compartment != "E",{
   v.ll = max(lo.lo); t.ll = t[which.max(lo.lo)]
   v.lo = max(lo); t.lo = t[which.max(lo)]
   v.md = max(med); t.md = t[which.max(med)]
@@ -495,7 +605,7 @@ intacctable1 <- dcast(intacc, scen_id + compartment ~ t, value.var="V1")[order(s
 
 landscape(mkkbl(
   intacctable1,
-  caption=sprintf("Net reductions for main outcomes in %s by intervention scenario; reductions are evaluated at %s months.", params$location, pasteAnd(milestones/30)),
+  caption=sprintf("Net reductions for main outcomes in %s by intervention scenario; reductions are evaluated at %s months. Note that net reductions may decline with time; as shown in Fig. 3, some interventions have a large initial impact, but ultimately still allow many cases.", params$location, pasteAnd(milestones/30)),
   escape = FALSE,
   b = FALSE
 ))
@@ -538,52 +648,18 @@ plot_grid(plotter(poppyra), sp_contact_matrices(params$contactmatrices), ncol = 
 
 ## Key model parameters 
 
-We collated multiple sources of evidence to estimate key model parameters (Table \@ref(tab:parameters)). In a meta-analysis, we estimated that the basic reproduction number, $R_0$, was 2.7 (95% credible interval: 1.6–3.9) across settings without substantial control measures in place ($R_0$ describes the average number of secondary infections caused by a typical primary infection in a completely susceptible population). We derived age-stratified case fatality ratios (CFR) to estimate a CFR that ranged substantially across age groups, from 0.1% in the 20–29 age group to 7.7% in the over-80 age group. For all model parameters, their values or distributions are given in Table \@ref(tab:parameters)
-<!-- and the distributions of variable parameters are shown in Fig. \@ref(fig:parameterdistributions). -->
-
-
-<!-- ```{r parameterdistributions, echo=FALSE, fig.height=8, fig.cap="Model Parameter Distributions."} -->
-<!-- plot_all_parameters() -->
-<!-- ``` -->
-
-
-```{r echo=FALSE}
-parameter_set_df <- data.frame(matrix(c(
-  "Basic reproductive rate", "$R_0$", "Normal", "$\\mu = 2.6$", "1.6–3.9", "\\citep{davies2020}",
-  "Age-specific clinical fraction", "$y_i$", "Fixed", "Age-dependent", "0.3-0.8", "\\citep{daviesage2020}",
-  "Relative infectiousness\nof subclinical cases", "$f$", "Fixed", "50\\%", "0.5", "Assumed",
-  "Serial interval", "SI", "Normal", "$\\mu = 6.5$, $\\sigma = 2.7$", "5.5-7.6 days", "\\citep{li2020early, bi2020epidemiology, nishiura2020serial}",
-  "Mean latent period", "p", "Fixed", "4 days", "4", "\\citep{liu2020contribution}",
-  "Mean duration of\npreclinical infectiousness", "$t_p$", "Fixed", "1.5", "1.5 days", "\\citep{liu2020contribution}",
-  "Mean duration of\nclinical infectiousness", "$t_c$", "Fixed", "3.5", "1.5 days", "\\citep{liu2020contribution}",
-  "Delay from symptom\nonset to hospitilisation", "$d_h$", "Gamma", paste0("$k=7$, $\\Theta=", round(7 / 2.65^2, 2), "$"), paste0(round(qgamma(0.025, shape = 7, scale = 8 / 2.83^2)), "-", round(qgamma(0.975, shape = 7, scale = 7 / 2.65^2), 2), " days"), "\\citep{linton2020incubation, cao2020trial}",
-  "Delay from hospitilisation\nto discharge/death (non-ICU)", "$d_d$", "Gamma", paste0("$k=8$, $\\Theta=", round(8 / 2.83^2, 2), "$"), paste0(round(qgamma(0.025, shape = 8, scale = 8 / 2.83^2)), "-", round(qgamma(0.975, shape = 8, scale = 8 / 2.83^2), 2), " days"), "\\citep{NHSDigital}",
-  "Delay from hospitilisation\nto discharge/death (ICU)", "$d_{icu}$", "Gamma", paste0("$k=10$, $\\Theta=", round(10 / 3.16^2, 2), "$"), paste0(round(qgamma(0.025, shape = 10, scale = 3.16)), "-", round(qgamma(0.975, shape = 10, scale = 10 / 3.16^2), 2), " days"), "\\citep{cao2020trial}",
-  "Delay from onset\nto death (ICU)", "$d_{tot}$", "Gamma", paste0("$k=22$, $\\Theta=", round(22 / 4.69^2, 2), "$"), paste0(round(qgamma(0.025, shape = 22, scale = 22 / 4.69^2)), "-", round(qgamma(0.975, shape = 22, scale = 22 / 4.69^2), 2), " days"), "\\citep{linton2020incubation, cao2020trial}",
-  "Risk of becoming a severe case", "hosp", "Fixed", "Age-dependent", "0.0-61.8", "\\citep{davies2020, vzandvoort2020}",
-  "Proportion hospitalised who are critical", "l", "Fixed", "30\\%", "0.3", "\\citep{liu2020contribution, vzandvoort2020}",
-  "Case fatality ratio severe cases", "CFRs", "Fixed", "Age-dependent", "0.0-11.5", "\\citep{davies2020, vzandvoort2020}",
-  "Case fatality ratio critical cases", "CFRc", "Fixed", "75\\%", "0.75", "assumed"
-),
-ncol = 6, byrow = TRUE
-))
-names(parameter_set_df) <- c("Short English Name", "Abbrv.", "Assumed Distribution", "Distribution Parameters", "95\\% CI", "References")
-parameter_set_df %>%
-  # select(-References) %>%
-  mutate_all(linebreak) %>%
-  # mutate(References="\\citep{daviesage2020}") %>%
-  # mutate(References="\\citep{liu2020contribution}") %>%
-  knitr::kable("latex", booktabs = TRUE, escape = FALSE, caption = "Parameters used in the models and descriptions of their distributions and sources.", label = "parameters") %>%
-  kableExtra::kable_styling(latex_options = "scale_down")
-```
-
+As documented in [@davies2020], we collated multiple sources of evidence to estimate key model parameters. In a meta-analysis, we estimated that the basic reproduction number, $R_0$, was 2.7 (95% credible interval: 1.6–3.9) across settings without substantial control measures in place ($R_0$ describes the average number of secondary infections caused by a typical primary infection in a completely susceptible population). We derived age-stratified case fatality ratios (CFR) to estimate a CFR that ranged substantially across age groups, from 0.1% in the 20–29 age group to 7.7% in the over-80 age group.
 
 ## Key parameters of the transmission model 
 
-We used a serial interval of 6.5 days based on published studies [@li2020early;@bi2020epidemiology;@nishiura2020serial], and assumed that the length of the preclinical period was 30% of the total period of clinical infectiousness [@liu2020contribution]. From this, we fixed the mean of the latent period to 4 days, the mean duration of preclinical infectiousness to 1.5 days, and the mean duration of clinical infectiousness to 3.5 days. The basic reproduction number $R_0$ was estimated by synthesizing the results of a literature review (Fig. S1). For each reported value of the basic reproduction number, we matched a flexible PERT distribution (a shifted beta distribution parameterised by minimum, maximum, and mode) to the median and confidence interval reported in each study. We sampled from the resulting distributions, weighting each study equally, to obtain estimates of $R_0$ for our simulations. The age-specific clinical fraction, $y_i$, was adopted from an estimate based on case data from 6 countries [@daviesage2020], and the relative infectiousness of subclinical cases, $f$, was assumed to be 50% relative to clinical cases, as we assumed in a previous study [@daviesage2020].
+We used a serial interval of 6.5 days based on published studies [@li2020early;@bi2020epidemiology;@nishiura2020serial], and assumed that the length of the preclinical period was 30% of the total period of clinical infectiousness [@liu2020contribution]. From this, we fixed the mean of the latent period to 4 days, the mean duration of preclinical infectiousness to 1.5 days, and the mean duration of clinical infectiousness to 3.5 days. The basic reproduction number $R_0$ was estimated by synthesizing the results of a literature review (Fig. S1 in [@davies2020]). For each reported value of the basic reproduction number, we matched a flexible PERT distribution (a shifted beta distribution parameterised by minimum, maximum, and mode) to the median and confidence interval reported in each study. We sampled from the resulting distributions, weighting each study equally, to obtain estimates of $R_0$ for our simulations. The age-specific clinical fraction, $y_i$, was adopted from an estimate based on case data from 6 countries [@daviesage2020], and the relative infectiousness of subclinical cases, $f$, was assumed to be 50% relative to clinical cases, as assumed in a previous study [@daviesage2020].
 
 ## Hospital burden estimation
 
-To calculate ICU and non-ICU beds in use through time, we scaled age-stratified symptomatic cases by age-specific hospitalisation and critical outcome probability, then summed to get the total number of hospitalised and critical cases. We then distributed hospitalised cases over time based on expected time of hospitalisation and duration admitted. We assumed gamma-distributed delays, with the shape parameter set equal to the mean, for: delay from symptom onset to hospitalisation of mean 7 days (standard deviation 2.65) [@linton2020incubation;@cao2020trial]; delay from hospitalisation to discharge / death for non-ICU patients of mean 8 days (s.d. 2.83) [@NHSDigital]; delay from hospitalisation to discharge / death for ICU patients of mean 10 days (s.d. 3.16) [@cao2020trial]; and delay from onset to death of mean 22 days (s.d. 4.69) [@linton2020incubation;@cao2020trial]. We calculated the age-specific case fatality ratio based on data from the COVID-19 outbreak in China and on the Diamond Princess cruise ship. We first calculated the naive case fatality ratio, nCFR, (i.e. deaths/cases) for each age group, then scaled down the naive CFR based on a correction factor estimated from data from the Diamond Princess [@russell2020] to give an adjusted CFR. We then calculated risk of hospitalisation based on the ratio of severe and critical cases to cases (18.5%) and deaths to cases (2.3%) in the early China data, which we took to imply 8.04 times more hospitalisations than deaths in each age group. We assumed all age groups had a 30% risk of requiring critical care if hospitalised [@cao2020trial].”
+To calculate ICU and non-ICU beds in use through time, we scaled age-stratified symptomatic cases by age-specific hospitalisation and critical outcome probability, then summed to get the total number of hospitalised and critical cases. We then distributed hospitalised cases over time based on expected time of hospitalisation and duration admitted. We assumed gamma-distributed delays, with the shape parameter set equal to the mean, for: delay from symptom onset to hospitalisation of mean 7 days (standard deviation 2.65) [@linton2020incubation;@cao2020trial]; delay from hospitalisation to discharge / death for non-ICU patients of mean 8 days (s.d. 2.83) [@NHSDigital]; delay from hospitalisation to discharge / death for ICU patients of mean 10 days (s.d. 3.16) [@cao2020trial]; and delay from onset to death of mean 22 days (s.d. 4.69) [@linton2020incubation;@cao2020trial]. We calculated the age-specific case fatality ratio based on data from the COVID-19 outbreak in China and on the Diamond Princess cruise ship. We first calculated the naive case fatality ratio, nCFR, (*i.e.* deaths/cases) for each age group, then scaled down the naive CFR based on a correction factor estimated from data from the Diamond Princess [@russell2020] to give an adjusted CFR. We then calculated risk of hospitalisation based on the ratio of severe and critical cases to cases (18.5%) and deaths to cases (2.3%) in the early China data, which we took to imply 8.04 times more hospitalisations than deaths in each age group. We assumed all age groups had a 30% risk of requiring critical care if hospitalised [@cao2020trial].
+
+## Severity Shift
+
+To account for increased prevalence of comorbidities in lower-middle income countries, we shifted the age-specific outcome probabilities by ten years. *E.g.*, the 0-4 year old category in our model has the same risk of disease as we estimated elsewhere for 10-14 year olds. We also applied a 1.5 relative-risk modifier for symptomatic disease; since other outcomes are determined conditional on symptomatic disease, this has the net effect of increasing the hospitalisation and death rates relative to infections.
 
 # References

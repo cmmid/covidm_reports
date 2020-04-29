@@ -23,7 +23,7 @@ expander <- function(
 ))
 
 inc.expander <- function(
-  dt, compartment=c("cases","death_o"),
+  dt, compartment=c("cases","death_o", "E"),
   ...
 ) expander(dt, compartment=compartment, ...)
 
@@ -133,15 +133,16 @@ geom_target <- function(
 fct_labels <- function(
   stack=TRUE, stack.char = ifelse(stack,"\n"," "),
   pre="",
-  ...
-) labeller(
   compartment = c(
     cases=sprintf("%sSymptomatic%sCases", pre, stack.char),
     icu_p=sprintf("%sCritical Care%sOccupancy", pre, stack.char),
     nonicu_p=sprintf("%sGeneral Hospital%sOccupancy", pre, stack.char),
     hosp_p=sprintf("%sAll Hospital%sOccupancy", pre, stack.char),
     death_o=sprintf("%sDeaths", pre)
-  ), ...
+  ),
+  ...
+) labeller(
+  compartment = compartment, ...
 )
 
 scale_color_quantile <- function(

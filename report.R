@@ -5,13 +5,15 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  sprintf("~/Dropbox/covidm_hpc_output/uganda/%s.qs",c("001","alls","accs","peak")),
+  sprintf("~/Dropbox/covidm_hpc_output/caboverde/%s.qs",c("001","alls","accs","peak")),
   "report-template-alt.Rmd",
   "plotfuns.rda", "intplots.rda", "plotpars.rda",
   "~/Dropbox/covidm_reports/interventions/inputs",
   "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
-  "uganda/report.pdf"
+  "caboverde/report.pdf"
 ) else commandArgs(trailingOnly = TRUE)
+#' @example 
+#' .args <- gsub("caboverde","uganda",.args)
 
 # first 4 args
 simfns <- .args[1:4]
