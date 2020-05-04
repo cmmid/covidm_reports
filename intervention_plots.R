@@ -13,18 +13,14 @@ suppressPackageStartupMessages({
 scendata <- readRDS(.args[1])
 scenkey <- readRDS(.args[2])
 
-# w20 <- scendata[[3]][, which(gen_socdist_other == 0.8 & gen_socdist_stop == 9)]
-# w40 <- scendata[[3]][, which(gen_socdist_other == 0.6 & gen_socdist_stop == 9)]
-# sheild80 <- scendata[[4]][, which(hirisk_prop_isolated == 0.8 & hirisk_lorisk_contact == 0.2 & hirisk_contact == 1.0)]
-# sheildplusdist <- scendata[[5]][,which(hirisk_prop_isolated == 0.8 & hirisk_lorisk_contact == 0.2 & hirisk_contact == 1.0)]
-# 
-# scens <- c(
-#   scenkey[scen == 3 & s %in% c(w20, w40), index],
-#   scenkey[scen == 4 & s == sheild80, index],
-#   scenkey[scen == 5 & s %in% sheildplusdist, index]
-# )
-
-scens <- 2:6
+scens <- c(
+  scenkey[ scen == 2 & s == 2, index],
+  scenkey[ scen == 2 & s == 1, index],
+  scenkey[ scen == 3 & s == 2, index],
+  scenkey[ scen == 3 & s == 4, index],
+  scenkey[ scen == 4 & s == 20, index],
+  scenkey[ scen == 4 & s == 4, index]
+)
 
 source("./plotting_support.R")
 
@@ -32,13 +28,14 @@ int.factorize <- function(s) factor(s, c(1, scens), c(
   "Unmitigated",
   "20% distancing",
   "50% distancing",
-  "80% shielding",
-  "80% shielding &\n20% distancing",
-  "80% shielding &\n50% distancing"
-))
+  "40/80 shielding",
+  "80/80 shielding",
+  "80/80 shielding,\n20% distancing",
+  "80/80 shielding,\n50% distancing"
+), ordered = TRUE)
 
 int.fct <- facet_grid(
-  compartment ~ int.factorize(scen_id),
+  compartment ~ scenario,
   scales="free", labeller = fct_labels(stack = TRUE)
 )
 
@@ -90,7 +87,7 @@ int.peaks <- function(
       compartment %in% c("cases","death_o","hosp_p")
     ]
   ) +
-  aes(int.factorize(scen_id), med, color=compartment) +
+  aes(scenario, med, color=compartment) +
   geom_linerange(aes(ymin=lo95, ymax=hi95), position = position_dodge(width=0.5)) +
   geom_linerange(aes(ymin=lo50, ymax=hi50), position = position_dodge(width=0.5), size = 2) +
   coord_cartesian(ylim=ylim, expand = F) +
@@ -107,7 +104,7 @@ int.peaks <- function(
 
 int.peaks.all <- function(dt, override.aes = aes(), range.scale = c(1,2,3)) {
   ggplot(dt) +
-    aes(factor(scen_id), med, color=int.factorize(scen_id)) + override.aes +
+    aes(scenario, med, color=scenario) + override.aes +
     geom_linerange(aes(ymin=lo.lo, ymax=hi.hi, alpha="hi.hi"), position = position_dodge(width=0.5), size = range.scale[1]) +
     geom_linerange(aes(ymin=lo, ymax=hi, alpha="hi"), position = position_dodge(width=0.5), size = range.scale[2]) +
     geom_point(aes(y=med, alpha="med"), position = position_dodge(width=0.5), size = range.scale[3]) +

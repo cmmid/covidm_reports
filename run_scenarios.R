@@ -6,9 +6,7 @@ suppressPackageStartupMessages({
 .args <- if (interactive()) c(
   "helper_functions.R",
   "../covidm", "caboverde", "002", 
-  sprintf("~/Dropbox/covidm_reports/interventions/%s",c(
-    "inputs"
-  )),
+  sprintf("~/Dropbox/covidm_reports/hpc_inputs"),
   "caboverde/002.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -31,20 +29,32 @@ suppressPackageStartupMessages({
   source(paste0(cm_path, "/R/covidm.R"))
 })
 
-.inputfns <- list.files(inputpth, "\\.rds", full.names = TRUE, include.dirs = F)
+.inputfns <- list.files(inputpth, "\\.(rds|qs)", full.names = TRUE, include.dirs = F)
+
+binReader <- function(nm) {
+  switch(
+    gsub("^.+(rds|qs)$","\\1",nm),
+    rds = readRDS(nm),
+    qs = qread(nm)
+  )
+}
 
 for (.fn in .inputfns) {
-  .nm <- gsub(sprintf("^%s/(.+)\\.rds$",inputpth),"\\1",.fn)
-  assign(.nm, readRDS(.fn))
+  .nm <- gsub(sprintf("^%s/(.+)\\.(rds|qs)$",inputpth),"\\1",.fn)
+  assign(.nm, binReader(.fn))
 }
 
 if (dir.exists(detailinputs)) {
-  for (.fn in list.files(detailinputs, "\\.rds", full.names = TRUE)) {
-    .nm <- gsub(sprintf("^%s/(.+)\\.rds$", detailinputs),"\\1",.fn)
+  for (.fn in list.files(detailinputs, "\\.(rds|qs)", full.names = TRUE)) {
+    .nm <- gsub(sprintf("^%s/(.+)\\.(rds|qs)$", detailinputs),"\\1",.fn)
     ## overrides previous assignment, if any
     assign(.nm, readRDS(.fn))
   }
 }
+
+set.seed(1234)
+
+yu <- covidm_fit_yu[sample(.N, run_options[,max(index)], replace = TRUE)]
 
 scen <- scenarios_overview[index == scenario_index, scen]
 s <- scenarios_overview[index == scenario_index, s]
@@ -76,10 +86,11 @@ ulim <- as.integer(Sys.getenv("SIMRUNS"))
 if (!is.na(ulim)) {
   cat("running reduced set: ",ulim,"...\n")
   run_options <- run_options[1:min(ulim, .N)]
+  yu <- yu[1:min(ulim, .N)]
 }
 
 for(i in 1:nrow(run_options)){
-  
+    
   params <- params_back
   
   if (gen_socdist | (hirisk_prop_isolated > 0)) {
@@ -169,6 +180,26 @@ for(i in 1:nrow(run_options)){
       return(x)
     }
   )
+  
+  subyu <- yu[i]
+  ys <- rep(
+    yu[, as.numeric(.SD[1]), .SDcols = grep("y_",colnames(yu))],
+    each = 2
+  )
+  us <- rep(
+    yu[, as.numeric(.SD[1]), .SDcols = grep("u_",colnames(yu))],
+    each = 2
+  )
+  
+  params$pop <- lapply(
+    params$pop,
+    function(x){
+      x$y <- ys
+      x$u <- us
+      return(x)
+    }
+  )
+  
   #adjust r0 to that in current sample
   target_R0 <- run_options[i, r0]
   params$pop <- lapply(

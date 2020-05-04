@@ -8,12 +8,12 @@ suppressPackageStartupMessages({
   sprintf("~/Dropbox/covidm_hpc_output/caboverde/%s.qs",c("001","alls","accs","peak")),
   "report-template-alt.Rmd",
   "plotfuns.rda", "intplots.rda", "plotpars.rda",
-  "~/Dropbox/covidm_reports/interventions/inputs",
-  "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
+  "~/Dropbox/covidm_reports/hpc_inputs",
+  "~/Dropbox/covidm_reports/generation/data_contacts_missing.csv",
   "caboverde/report.pdf"
 ) else commandArgs(trailingOnly = TRUE)
 #' @example 
-#' .args <- gsub("caboverde","uganda",.args)
+#' .args <- gsub("ethiopia","uganda",.args)
 
 # first 4 args
 simfns <- .args[1:4]
@@ -126,6 +126,8 @@ poppyra[, per_by_age := per_by_age / sum(pop)]
   plothelpers = plothelpers,
   is_analogy = is_analogy
 )
+#' @examples 
+#' params <- .params
 
 rmarkdown::render(
   template,

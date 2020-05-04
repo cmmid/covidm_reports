@@ -1,5 +1,5 @@
-input_dir <- "~/Dropbox/covidm_reports/interventions/inputs/"
-helper_file <- "~/workspace/covidm_reports/helper_functions.R"
+input_dir <- path.expand("~/Dropbox/covidm_reports/interventions/inputs")
+helper_file <- path.expand("~/workspaces/covidm_reports/helper_functions.R")
 
 library(data.table)
 source(helper_file)
@@ -12,7 +12,7 @@ scenario_1 <- set_scenario_combinations(
   combine_each = list()
 )
 
-#50% self-isolation and 20% social-distancing
+#50% self-isolation and 20/50% social-distancing
 scenario_2 <- set_scenario_combinations(
   combine_each=list(
     gen_socdist=T,
@@ -20,7 +20,7 @@ scenario_2 <- set_scenario_combinations(
     gen_socdist_house=1,
     gen_socdist_school="other",
     gen_socdist_work="other",
-    gen_socdist_other=c(0.8),
+    gen_socdist_other=c(0.5, 0.8),
     symptomatic_contact=0.5,
     gen_socdist_start="incidence",
     gen_socdist_schedule_filter_on_threshold=c(1/10000)
@@ -28,21 +28,24 @@ scenario_2 <- set_scenario_combinations(
   individual_only=list()
 )
 
-#50% self-isolation and 50% social distancing
-scenario_3 <- set_scenario_combinations(
-  combine_each=list(
-    gen_socdist=T,
-    gen_socdist_stop=c(12),
-    gen_socdist_house=1,
-    gen_socdist_school="other",
-    gen_socdist_work="other",
-    gen_socdist_other=c(0.5),
-    symptomatic_contact=0.5,
-    gen_socdist_start="incidence",
-    gen_socdist_schedule_filter_on_threshold=c(1/10000)
-  ),
-  individual_only=list()
-)
+# #50% self-isolation and 50% social distancing
+# scenario_3 <- set_scenario_combinations(
+#   combine_each=list(
+#     gen_socdist=T,
+#     gen_socdist_stop=c(12),
+#     gen_socdist_house=1,
+#     gen_socdist_school="other",
+#     gen_socdist_work="other",
+#     gen_socdist_other=c(0.5),
+#     symptomatic_contact=0.5,
+#     gen_socdist_start="incidence",
+#     gen_socdist_schedule_filter_on_threshold=c(1/10000)
+#   ),
+#   individual_only=list()
+# )
+
+shielding_coverage <- (1:4)/5
+shielding_eff <- (1:4)/5
 
 #50% self-isolation and 80% shielding
 scenario_4 <- set_scenario_combinations(
@@ -51,51 +54,29 @@ scenario_4 <- set_scenario_combinations(
     hirisk_shield_start="incidence",
     hirisk_shield_stop=12,
     hirisk_shield_schedule_filter_on_threshold=c(1/10000),
-    hirisk_prop_isolated=c(0.2,0.4,0.6,0.8),
+    hirisk_prop_isolated=shielding_coverage,
     hirisk_contact=1,
-    hirisk_lorisk_contact=c(0.2,0.4,0.6,0.8)
+    hirisk_lorisk_contact=shielding_eff
   ),
   individual_only=list()
 )
 
-#50% self-isolation and 80% shielding and 20% social-distancing
+#50% self-isolation and 80% shielding and 20/50% social-distancing
 scenario_5 <- set_scenario_combinations(
   combine_each=list(
     symptomatic_contact=0.5,
     hirisk_shield_start="incidence",
     hirisk_shield_schedule_filter_on_threshold=c(1/10000),
-    hirisk_prop_isolated=0.8,
+    hirisk_prop_isolated=shielding_coverage,
     hirisk_contact=1,
-    hirisk_lorisk_contact=0.2,
+    hirisk_lorisk_contact=shielding_eff,
     hirisk_shield_stop=12,
     gen_socdist=T,
     gen_socdist_stop=c(12),
     gen_socdist_house=1,
     gen_socdist_school="other",
     gen_socdist_work="other",
-    gen_socdist_other=c(0.8),
-    gen_socdist_start="incidence",
-    gen_socdist_schedule_filter_on_threshold=c(1/10000)
-  ),
-  individual_only=list()
-)
-
-#50% self-isolation and 80% shielding and 50% social-distancing
-scenario_6 <- set_scenario_combinations(
-  combine_each=list(
-    symptomatic_contact=0.5,
-    hirisk_shield_start="incidence",
-    hirisk_shield_schedule_filter_on_threshold=c(1/10000),
-    hirisk_prop_isolated=0.8,
-    hirisk_contact=1,
-    hirisk_lorisk_contact=0.2,
-    hirisk_shield_stop=12,
-    gen_socdist=T,
-    gen_socdist_stop=c(12),
-    gen_socdist_house=1,
-    gen_socdist_school="other",
-    gen_socdist_work="other",
-    gen_socdist_other=c(0.5),
+    gen_socdist_other=c(0.5, 0.8),
     gen_socdist_start="incidence",
     gen_socdist_schedule_filter_on_threshold=c(1/10000)
   ),
@@ -303,10 +284,10 @@ scenario_6 <- set_scenario_combinations(
 scenarios <- list(
   scenario_1,
   scenario_2,
-  scenario_3,
+#  scenario_3,
   scenario_4,
-  scenario_5,
-  scenario_6#,
+  scenario_5#,
+#  scenario_6,
   #scenario_7,
   #scenario_8,
   #scenario_9,

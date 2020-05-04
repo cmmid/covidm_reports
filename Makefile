@@ -4,7 +4,7 @@
 COVIDMPATH ?= ../covidm
 REPDIR ?= ~/Dropbox/Covid_lmic/reports
 DATADIR ?= ~/Dropbox/covidm_reports
-INTINPUTDIR := ${DATADIR}/interventions/inputs
+INTINPUTDIR := ${DATADIR}/hpc_inputs
 HPCDIR ?= ~/Dropbox/covidm_hpc_output
 
 ${REPDIR} ${DATADIR}:
@@ -14,7 +14,7 @@ R = Rscript $^ $@
 
 # This file forms the reference locales for which we generate reports
 
-LMIC.txt: create_reference_countries.R ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv
+LMIC.txt: create_reference_countries.R ${INTINPUTDIR}/../generation/data_contacts_missing.csv
 	Rscript $^ ${COVIDMPATH} $@
 
 # This is for output root targets
@@ -35,7 +35,7 @@ CMS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICcontact_matrices.txt))
 
 allcontactmatrices: ${CMS} | LMICcontact_matrices.txt
 
-${INTINPUTDIR}/%/contact_matrices.rds: create_contact_matrices.R ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv
+${INTINPUTDIR}/%/contact_matrices.rds: create_contact_matrices.R ${INTINPUTDIR}/../generation/data_contacts_missing.csv
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $* $@
 	[ -f "$@" ] && touch $@
@@ -50,11 +50,17 @@ PSS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICparams_set.txt))
 
 allparamsets: ${PSS} | LMICparams_set.txt
 
-${INTINPUTDIR}/%/params_set.rds: create_params_set.R ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv
+${INTINPUTDIR}/%/params_set.rds: create_params_set.R ${INTINPUTDIR}/../generation/data_contacts_missing.csv
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $* $@
 
 # All the interventions
+
+scenref: ${INTINPUTDIR}/scenarios.rds ${INTINPUTDIR}/scenarios_overview.rds
+
+${INTINPUTDIR}/scenarios.rds ${INTINPUTDIR}/scenarios_overview.rds: generate_scenario_parameters.R
+	Rscript $^
+
 
 ROOTS := $(shell cat LMICroots.txt)
 
@@ -94,7 +100,7 @@ ${HPCDIR}/%/accs.qs ${HPCDIR}/%/peak.qs \
 report-template.Rmd ${PLOTREF} COVID.bib
 	mkdir -p $(@D)
 	Rscript $(filter-out %.bib,$^) \
-	${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/data_contacts_missing.csv \
+	${INTINPUTDIR} ${INTINPUTDIR}/../generation/data_contacts_missing.csv \
 	$@
 
 DATE := $(shell date +%Y_%m_%d)
@@ -114,7 +120,7 @@ allacc: $(patsubst %,${HPCDIR}/%/accs.qs,${ROOTS})
 
 allreps: $(patsubst %,${REPDIR}/%/report.pdf,${ROOTS})
 
-testrep: ${REPDIR}/caboverde/report.pdf
+testrep: ${REPDIR}/botswana/report.pdf
 
 #${REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd COVID.bib | ${REPDIR}
 #	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
