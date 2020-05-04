@@ -181,13 +181,12 @@ for(i in 1:nrow(run_options)){
     }
   )
   
-  subyu <- yu[i]
   ys <- rep(
-    yu[, as.numeric(.SD[1]), .SDcols = grep("y_",colnames(yu))],
+    yu[i, as.numeric(.SD[1]), .SDcols = grep("y_",colnames(yu))],
     each = 2
   )
   us <- rep(
-    yu[, as.numeric(.SD[1]), .SDcols = grep("u_",colnames(yu))],
+    yu[i, as.numeric(.SD[1]), .SDcols = grep("u_",colnames(yu))],
     each = 2
   )
   
