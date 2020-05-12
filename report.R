@@ -87,7 +87,11 @@ poppyra <- with(base_params, data.table(
 ))
 loc <- base_params$name
 
+namenorm <- function(n) gsub(" ","",gsub("[^a-zA-Z]","",tolower(as.character(n))))
+
 cmref <- fread(cmrefpath)[loc == name]
+if (!dim(cmref)[1]) cmref <- fread(cmrefpath)[loc == cm_name]
+if (!dim(cmref)[1]) cmref <- fread(cmrefpath)[,if (grepl(namenorm(name),namenorm(loc))) .SD,by=name]
 
 if (!cmref$cm) {
   is_analogy <- cmref$cm_name

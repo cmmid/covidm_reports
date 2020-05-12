@@ -5,8 +5,8 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "~/Dropbox/covidm_reports/interventions/inputs/scenarios.rds",
-  "~/Dropbox/covidm_reports/interventions/inputs/scenarios_overview.rds",
+  "~/Dropbox/covidm_reports/hpc_inputs/scenarios.rds",
+  "~/Dropbox/covidm_reports/hpc_inputs/scenarios_overview.rds",
   "intplots.rda"
 ) else commandArgs(trailingOnly = TRUE)
 
