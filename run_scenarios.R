@@ -5,9 +5,9 @@ suppressPackageStartupMessages({
 
 .args <- if (interactive()) c(
   "helper_functions.R",
-  "../covidm", "caboverde", "002", 
+  "../covidm", "caboverde", "053", 
   sprintf("~/Dropbox/covidm_reports/hpc_inputs"),
-  "caboverde/002.qs"
+  "caboverde/053.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
 source(.args[1])
@@ -83,6 +83,8 @@ results_cases <- list()
 params_back <- params
 
 ulim <- as.integer(Sys.getenv("SIMRUNS"))
+#' @examples 
+#' ulim <- 10
 if (!is.na(ulim)) {
   cat("running reduced set: ",ulim,"...\n")
   run_options <- run_options[1:min(ulim, .N)]
@@ -99,8 +101,8 @@ for(i in 1:nrow(run_options)){
     #' general social distancing
     if(gen_socdist){
       
-      if(is.list(gen_socdist_start)){
-        gen_socdist_startdate <- sapply(
+      gen_socdist_startdate <- if(is.list(gen_socdist_start)){
+        sapply(
           1:length(gen_socdist_start[[1]]),
           function(x){
             if(gen_socdist_start[[1]][x] == "incidence") {
@@ -110,11 +112,15 @@ for(i in 1:nrow(run_options)){
             } else if(gen_socdist_start[[1]][x] == "date" & !is.na(timing$int0day)) {
               return(as.character(as.Date(params$date0) + timing$int0day))
             }
-          })
+        })
       } else {
-        threshold_time <- unmitigated[run == i & incidence >= gen_socdist_schedule_filter_on_threshold][1,t]
-        if(is.na(threshold_time)){ threshold_time <- 1e6 }
-        gen_socdist_startdate <- as.Date(params$date0) + threshold_time
+        if(gen_socdist_start == "incidence") {
+          threshold_time <- unmitigated[run == i & incidence >= gen_socdist_schedule_filter_on_threshold][1,t]
+          if(is.na(threshold_time)){ threshold_time <- 1e6 }
+          as.Date(params$date0) + threshold_time
+        } else if(gen_socdist_start == "date" & !is.na(timing$int0day)) {
+          as.Date(params$date0) + timing$int0day
+        }
       }
       
       if(is.list(gen_socdist_stop)){

@@ -7,8 +7,8 @@ suppressPackageStartupMessages({
   "~/Dropbox/covidm_reports/generation/data_contacts_missing.csv",
   "data/interventions/digested.csv",
   "data/introductions/digested.csv",
-  "zimbabwe",
-  "~/Dropbox/covidm_reports/hpc_inputs/zimbabwe/timing.rds"
+  "caboverde",
+  "~/Dropbox/covidm_reports/hpc_inputs/caboverde/timing.rds"
 ) else commandArgs(trailingOnly = TRUE)
 #' @examples 
 #' .args <- gsub("zimbabwe","guineabissau",.args)
