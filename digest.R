@@ -22,52 +22,55 @@ simfns <- sort(list.files(dirname(.args[1]), "\\d+\\.qs", full.names = TRUE))
 
 ref <- qread(simfns[1])
 
+dys <- 0:365
+
 expander <- data.table(expand.grid(
   run=1:max(ref$run),
   age=factor(c(levels(ref$age), "all"), ordered = TRUE),
-  t=1:365
+  t=dys
 ))
 
 inc.expander <- data.table(expand.grid(
   run=1:max(ref$run),
   age=factor(c(levels(ref$age), "all"), ordered = TRUE),
   compartment=c("cases","death_o", "E"),
-  t=1:365
+  t=dys
 ))
 
 prev.expander <- data.table(expand.grid(
   run=1:max(ref$run),
   age=factor(c(levels(ref$age), "all"), ordered = TRUE),
   compartment=c("nonicu_p","icu_p"),
-  t=1:365
+  t=dys
 ))
 
 all.expand <- data.table(expand.grid(
   run=1:max(ref$run),
   age=factor(c(levels(ref$age), "all"), ordered = TRUE),
   compartment=c("cases","death_o", "E","hosp_p","nonicu_p","icu_p"),
-  t=1:365
+  t=dys
 ))
 
 full <- function(dt, scen_id) {
   inc <- dt[inc.expander, on=.(run, age, compartment, t)]
-  inc[is.na(value), value := 0L]
+  date0 <- inc[t==0 & !is.na(date), date[1]]
+  inc[is.na(value), c("value","date") := .(0L, t+date0) ]
   prev <- dt[prev.expander, on=.(run, age, compartment, t)]
-  prev[is.na(value), value := 0L]
+  prev[is.na(value), c("value","date") := .(0L, t+date0) ]
   tmp <- rbind(inc, prev)
   # make the all ages category
-  tmp <- rbind(tmp, tmp[,.(value = sum(value), age = "all"),by=.(run, t, compartment)])
+  tmp <- rbind(tmp, tmp[,.(value = sum(value), age = "all"),by=.(run, t, date, compartment)])
   # make the all hospitalization category
-  tmp <- rbind(tmp, tmp[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp_p"),by=.(run, t, age)])
+  tmp <- rbind(tmp, tmp[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp_p"),by=.(run, t, date, age)])
   rm(inc, prev)
-  qtmp <- tmp[order(t),.(t, value = cumsum(value)), by=.(run, age, compartment)][,{
+  qtmp <- tmp[order(t),.(t, date, value = cumsum(value)), by=.(run, age, compartment)][,{
     qs <- quantile(value, probs = refprobs)
     names(qs) <- names(refprobs)
     as.list(qs)
-  }, by=.(compartment, t, age)]
+  }, by=.(compartment, t, date, age)]
   
   return(qtmp[order(t),.(
-    t,
+    t, date,
     lo.lo = diff(c(0,lo.lo)),
     lo = diff(c(0,lo)),
     med = diff(c(0,med)),
@@ -92,7 +95,7 @@ full <- function(dt, scen_id) {
 peak_value <- function(dt, comp = "cases") {
   ret <- dt[compartment == comp,.SD[which.max(value)], by=.(run, compartment, age)]
   retadd <- dt[
-    compartment == comp,.(value = sum(value)), by=.(run, t, compartment)
+    compartment == comp,.(value = sum(value)), by=.(run, t, date, compartment)
   ][,
     .SD[which.max(value)],
     by=.(run, compartment)
@@ -101,10 +104,10 @@ peak_value <- function(dt, comp = "cases") {
 }
 
 cumul <- function(dt, comp = "cases") {
-  tmp <- dt[compartment == comp][order(t),.(t, value = cumsum(value)), keyby=.(run, age)]
-  retadd <- dt[compartment == comp][,.(value = sum(value)), keyby=.(run, t)][order(t), .(age="all", t, value=cumsum(value)), keyby=.(run)]
+  tmp <- dt[compartment == comp][order(t),.(t, date, value = cumsum(value)), keyby=.(run, age)]
+  retadd <- dt[compartment == comp][,.(value = sum(value)), keyby=.(run, t, date)][order(t), .(age="all", t, date, value=cumsum(value)), keyby=.(run)]
   ret <- rbind(tmp, retadd)[expander, on=.(run, age, t), roll = TRUE, rollends = c(F, F)]
-  setkey(ret[!is.na(value)], run, t, age)[, compartment := comp ][, measure := "acc" ]
+  setkey(ret[!is.na(value)], run, t, date, age)[, compartment := comp ][, measure := "acc" ]
 }
 
 exp_prevalence <- function(dt, comp) {
@@ -120,7 +123,7 @@ combine_hosp_p <- function(dt) {
     exp_prevalence(dt, "icu_p"),
     exp_prevalence(dt, "nonicu_p")
   )
-  comb[, .(value = sum(value), compartment = "hosp_p"), keyby=.(run, t, age)]
+  comb[, .(value = sum(value), compartment = "hosp_p"), keyby=.(run, t, date, age)]
 }
 
 calcAll <- function(dt) {
@@ -167,7 +170,7 @@ for (ind in seq_along(simfns[-1])) {
     compar_peak[,
       .(
         value = value,
-        timing = t,
+        timing = t, dating = date,
         delay = t-i.t,
         reduction = i.value - value,
         effectiveness = ifelse(i.value == value, 0, (i.value - value)/i.value), run, compartment, age, measure)
