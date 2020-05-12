@@ -1,4 +1,4 @@
-input_dir <- path.expand("~/Dropbox/covidm_reports/interventions/inputs")
+input_dir <- path.expand("~/Dropbox/covidm_reports/hpc_inputs")
 helper_file <- path.expand("~/workspaces/covidm_reports/helper_functions.R")
 
 library(data.table)
@@ -79,6 +79,20 @@ scenario_5 <- set_scenario_combinations(
     gen_socdist_other=c(0.5, 0.8),
     gen_socdist_start="incidence",
     gen_socdist_schedule_filter_on_threshold=c(1/10000)
+  ),
+  individual_only=list()
+)
+
+scenario_historical <- set_scenario_combinations(
+  combine_each=list(
+    symptomatic_contact=0.5,
+    gen_socdist=T,
+    gen_socdist_stop=c(12),
+    gen_socdist_house=1,
+    gen_socdist_school="other",
+    gen_socdist_work="other",
+    gen_socdist_other=seq(0.2,0.8,by=0.2),
+    gen_socdist_start="date"
   ),
   individual_only=list()
 )
@@ -286,7 +300,8 @@ scenarios <- list(
   scenario_2,
 #  scenario_3,
   scenario_4,
-  scenario_5#,
+  scenario_5,
+  scenario_historical#,
 #  scenario_6,
   #scenario_7,
   #scenario_8,
@@ -309,9 +324,9 @@ scenarios_overview <- rbindlist(
 )
 scenarios_overview[, "index"] <- c(1:nrow(scenarios_overview))
 
-if(!dir.exists("./inputs")){
-  dir.create("./inputs")
-}
+# if(!dir.exists("./inputs")){
+#   dir.create("./inputs")
+# }
 
 saveRDS(scenarios_overview, sprintf("%s/scenarios_overview.rds", input_dir))
 saveRDS(scenarios, sprintf("%s/scenarios.rds", input_dir))

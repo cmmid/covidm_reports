@@ -4,9 +4,9 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "~/Dropbox/covidm_reports/interventions/generation_data/data_contacts_missing.csv",
+  "~/Dropbox/covidm_reports/generation/data_contacts_missing.csv",
   "../covidm", "zimbabwe",
-  "~/Dropbox/covidm_reports/interventions/inputs/zimbabwe/params_set.rds"
+  "~/Dropbox/covidm_reports/hpc_inputs/zimbabwe/params_set.rds"
 ) else commandArgs(trailingOnly = TRUE)
 #' @examples 
 #' .args <- gsub("zimbabwe","guineabissau",.args)
@@ -27,7 +27,7 @@ suppressPackageStartupMessages({
 namenorm <- function(n) gsub(" ","",gsub("[^a-zA-Z]","",tolower(as.character(n))))
 
 matref <- reference[namenorm(name) == target, ifelse(cm, name, cm_name)]
-country <- cm_populations[namenorm(name)==target, unique(as.character(name))]
+country <- cm_populations[namenorm(name) %like% namenorm(target), unique(as.character(name))]
 
 if (!length(country) & length(matref)) country <- matref
 if (!length(matref) & length(country)) matref <- country

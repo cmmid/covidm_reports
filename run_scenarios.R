@@ -103,12 +103,12 @@ for(i in 1:nrow(run_options)){
         gen_socdist_startdate <- sapply(
           1:length(gen_socdist_start[[1]]),
           function(x){
-            if(gen_socdist_start[[1]][x] == "incidence"){
+            if(gen_socdist_start[[1]][x] == "incidence") {
               threshold_time <- unmitigated[run == i & incidence >= gen_socdist_schedule_filter_on_threshold[[1]][x]][1,t]
               if(is.na(threshold_time)){ threshold_time <- 1e6 }
               return(as.character(as.Date(params$date0) + threshold_time))
-            } else {
-              return(0)
+            } else if(gen_socdist_start[[1]][x] == "date" & !is.na(timing$int0day)) {
+              return(as.character(as.Date(params$date0) + timing$int0day))
             }
           })
       } else {
@@ -248,4 +248,13 @@ reduce_ages <- function (dt) {
   dt[as.integer(group) >= 13, age := fctr(5) ]
 }
 
-qsave(reduce_ages(allbind)[, .(value = sum(value)), keyby=.(run, t, age, compartment)][value != 0], tarfile)
+#update dates
+res <- reduce_ages(allbind)[, .(value = sum(value)), keyby=.(run, t, age, compartment)][value != 0]
+if (!is.na(timing$day0date)) {
+  res[, date := t + timing$day0date ]
+} else {
+  res[, date := NA ]
+}
+
+
+qsave(res, tarfile)

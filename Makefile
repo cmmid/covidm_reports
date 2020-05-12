@@ -2,7 +2,7 @@
 -include local.makefile
 
 COVIDMPATH ?= ../covidm
-REPDIR ?= ~/Dropbox/Covid_lmic/reports
+REPDIR ?= ~/Dropbox/Covid_LMIC/Country_Modelling_Reports
 DATADIR ?= ~/Dropbox/covidm_reports
 INTINPUTDIR := ${DATADIR}/hpc_inputs
 HPCDIR ?= ~/Dropbox/covidm_hpc_output
@@ -14,8 +14,8 @@ R = Rscript $^ $@
 
 # This file forms the reference locales for which we generate reports
 
-LMIC.txt: create_reference_countries.R ${INTINPUTDIR}/../generation/data_contacts_missing.csv
-	Rscript $^ ${COVIDMPATH} $@
+LMIC.txt: ${INTINPUTDIR}/../generation/data_contacts_missing.csv
+	cut -d',' -f1 $< | sed '1d' > $@
 
 # This is for output root targets
 
@@ -54,6 +54,29 @@ ${INTINPUTDIR}/%/params_set.rds: create_params_set.R ${INTINPUTDIR}/../generatio
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $* $@
 
+# initial conditions
+
+LMICinits.txt: LMICroots.txt
+	sed "s/$$/\/timing\.rds/" $^ > $@
+
+INITS := $(addprefix ${INTINPUTDIR}/,$(shell cat LMICinits.txt))
+
+allinits: ${INITS} | LMICinits.txt
+
+${INTINPUTDIR}/%/timing.rds: create_timing_ref.R ${INTINPUTDIR}/../generation/data_contacts_missing.csv \
+data/interventions/digested.csv data/introductions/digested.csv
+	mkdir -p $(@D)
+	Rscript $^ $* $@
+
+
+# all setup; TODO move to subdirectory
+
+SETUPFILES := $(addsuffix .txt,LMICroots LMICparams_set LMICinits LMICcontact_matrices)
+
+setup: ${SETUPFILES}
+
+runsetup: allinits allparamsets allcontactmatrices
+
 # All the interventions
 
 scenref: ${INTINPUTDIR}/scenarios.rds ${INTINPUTDIR}/scenarios_overview.rds
@@ -71,6 +94,12 @@ ${HPCDIR}/%/accs.qs ${HPCDIR}/%/alls.qs ${HPCDIR}/%/peak.qs: digest.R
 ${HPCDIR}/%.qs: run_scenarios.R helper_functions.R
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
+
+testqs1: ${HPCDIR}/palestine/001.qs
+
+testqs: $(patsubst %,${HPCDIR}/palestine/%.qs,$(shell seq -f%03g 2 51))
+
+tmpdig: ${HPCDIR}/palestine/peak.qs
 
 # TODO: this depends on the all countries, peak|accs|001.qs
 ${HPCDIR}/summary.tar.gz:
@@ -120,7 +149,7 @@ allacc: $(patsubst %,${HPCDIR}/%/accs.qs,${ROOTS})
 
 allreps: $(patsubst %,${REPDIR}/%/report.pdf,${ROOTS})
 
-testrep: ${REPDIR}/botswana/report.pdf
+testrep: ${REPDIR}/palestine/report.pdf
 
 #${REPDIR}/%.pdf: report.R ${DATADIR}/%-res.rds report-template.Rmd COVID.bib | ${REPDIR}
 #	Rscript $(filter-out %.bib,$^) ${INTINPUTDIR} ${INTINPUTDIR}/../generation_data/lmic_early_deaths.csv $@
