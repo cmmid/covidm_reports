@@ -22,7 +22,7 @@ simfns <- sort(list.files(dirname(.args[1]), "\\d+\\.qs", full.names = TRUE))
 
 ref <- qread(simfns[1])
 
-dys <- 0:365
+dys <- 0:(2*365)
 
 expander <- data.table(expand.grid(
   run=1:max(ref$run),
