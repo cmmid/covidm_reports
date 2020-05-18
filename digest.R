@@ -23,6 +23,8 @@ simfns <- sort(list.files(dirname(.args[1]), "\\d+\\.qs", full.names = TRUE))
 ref <- qread(simfns[1])
 
 dys <- 0:(2*365)
+milestones <- c(seq(30,90,by=30),seq(180,max(dys),by=90))
+
 
 expander <- data.table(expand.grid(
   run=1:max(ref$run),
@@ -189,7 +191,7 @@ for (ind in seq_along(simfns[-1])) {
     measure == "acc"
   ][
     accref, on=.(run, compartment, age, measure, t), roll = T, rollends = c(F, T)
-  ][t %in% c(30, 60, 90, 180, 270, 360)]
+  ][t %in% milestones]
   compar_acc[is.na(value), value := 0 ]
 
   qs_acc <- melt(
