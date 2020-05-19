@@ -7,8 +7,8 @@ suppressPackageStartupMessages({
   "~/Dropbox/covidm_reports/generation/data_contacts_missing.csv",
   "data/interventions/digested.csv",
   "data/introductions/digested.csv",
-  "caboverde",
-  "~/Dropbox/covidm_reports/hpc_inputs/caboverde/timing.rds"
+  "CPV",
+  "~/Dropbox/covidm_reports/hpc_inputs/CPV/timing.rds"
 ) else commandArgs(trailingOnly = TRUE)
 #' @examples 
 #' .args <- gsub("zimbabwe","guineabissau",.args)
@@ -23,12 +23,10 @@ outfile = tail(.args, 1)
 
 namenorm <- function(n) gsub(" ","",gsub("[^a-zA-Z]","",tolower(as.character(n))))
 
-refiso <- reference[namenorm(name) == target, iso]
-
-intro0date <- day0timing[iso==refiso, date]
+intro0date <- day0timing[iso==target, date]
 if (!length(intro0date)) intro0date <- NA
 
-int0date <- inttiming[iso==refiso, date_start]
+int0date <- inttiming[iso==target, date_start]
 if (!length(int0date)) int0date <- NA
 
 int0day <- if(!is.na(int0date)) max(as.integer(int0date - intro0date), 0) else NA_integer_

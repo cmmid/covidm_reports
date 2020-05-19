@@ -5,14 +5,14 @@ suppressPackageStartupMessages({
 
 .args <- if (interactive()) c(
   "~/Dropbox/covidm_reports/generation/data_contacts_missing.csv",
-  "../covidm", "zimbabwe",
-  "~/Dropbox/covidm_reports/hpc_inputs/zimbabwe/params_set.rds"
+  "../covidm", "VEN",
+  "~/Dropbox/covidm_reports/hpc_inputs/VEN/params_set.rds"
 ) else commandArgs(trailingOnly = TRUE)
 #' @examples 
-#' .args <- gsub("zimbabwe","guineabissau",.args)
-#' .args <- gsub("zimbabwe","palestine",.args)
+#' .args <- gsub("ZWE","guineabissau",.args)
+#' .args <- gsub("ZWE","palestine",.args)
 
-reference = fread(.args[1])
+reference = fread(.args[1], strip.white = FALSE)
 cm_path = .args[2]
 target = .args[3]
 outfile = tail(.args, 1)
@@ -20,17 +20,24 @@ outfile = tail(.args, 1)
 cm_force_rebuild = F;
 cm_build_verbose = F;
 cm_force_shared = T;
+cm_version = 1;
+
 suppressPackageStartupMessages({
   source(paste0(cm_path, "/R/covidm.R"))
 })
 
-namenorm <- function(n) gsub(" ","",gsub("[^a-zA-Z]","",tolower(as.character(n))))
+matref <- reference[iso == target, cm_name]
+popcode <- reference[iso == target, ccode]
 
-matref <- reference[namenorm(name) == target, ifelse(cm, name, cm_name)]
-country <- cm_populations[namenorm(name) %like% namenorm(target), unique(as.character(name))]
+country <- cm_populations[
+  country_code == popcode,
+  unique(as.character(name))
+]
 
-if (!length(country) & length(matref)) country <- matref
-if (!length(matref) & length(country)) matref <- country
+if (!length(country)) country <- cm_populations[
+  name == matref,
+  unique(as.character(name))
+]
 
 stopifnot(length(country)==1)
 
@@ -137,10 +144,10 @@ popnorm <- function(x, seed_cases = 50){
   #age-specific probability of being symptomatic
   #x$y <- c(rep(0.056, 3), rep(0.49, 8), rep(0.74, 8))
   #new values proposed by nick
-  # x$y <- c(
-  #   rep(0.2973718, 2), rep(0.2230287, 2), rep(0.4191036, 2),
-  #   rep(0.4445867, 2), rep(0.5635720, 2), rep(0.8169443, 6)
-  # )
+  x$y <- c(
+    rep(0.2973718, 2), rep(0.2230287, 2), rep(0.4191036, 2),
+    rep(0.4445867, 2), rep(0.5635720, 2), rep(0.8169443, 6)
+  )
   
   #no cases in empty compartments
   x$dist_seed_ages <- as.numeric(!(x$size == 0))
@@ -156,19 +163,19 @@ params_set <- list()
 
 params1 <- cm_parameters_SEI3R(
   country, matref,
-  deterministic=FALSE
+  deterministic=FALSE, date_end = 365*2
 )
 
 params1$processes = burden_processes
 
 params1$pop <- lapply(params1$pop, popnorm)
-params1$time1 <- as.Date(params1$time1)
+#params1$time1 <- as.Date(params1$time1)
 
 params_set[[1]] <- params1
 
 params2 <- cm_parameters_SEI3R(
   rep(country, 2), rep(matref, 2),
-  deterministic=FALSE
+  deterministic=FALSE, date_end = 365*2
 )
 
 params2$processes = burden_processes
@@ -189,7 +196,7 @@ params2$pop[[2]]$seed_times <- 1e6
 #normal mixing between populations
 params2$travel <- matrix(rep(1, 4), 2)
 
-params2$time1 <- as.Date(params2$time1)
+#params2$time1 <- as.Date(params2$time1)
 
 params_set[[2]] <- params2
 
