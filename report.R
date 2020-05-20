@@ -14,6 +14,7 @@ suppressPackageStartupMessages({
 ) else commandArgs(trailingOnly = TRUE)
 #' @example 
 #' .args <- gsub("ethiopia","uganda",.args)
+#' .args <- gsub("caboverde","coxbazar",.args)
 
 # first 4 args
 simfns <- .args[1:4]

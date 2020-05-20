@@ -12,37 +12,44 @@ scenario_1 <- set_scenario_combinations(
   combine_each = list()
 )
 
-#50% self-isolation and 20/50% social-distancing
-scenario_2 <- set_scenario_combinations(
+soc_iso_lvls <- c(0.8,0.6,0.4)
+stop_times <- c(1,2,3)
+self_iso <- c(0.25,0.5,0.75)
+non_stop <- 24
+
+lockdowns <- c(0.2,0.4,0.6,0.8)
+
+no_school <- 0
+
+scenario_social_distance_only <- set_scenario_combinations(
   combine_each=list(
     gen_socdist=T,
-    gen_socdist_stop=c(12),
-    gen_socdist_house=1,
-    gen_socdist_school="other",
-    gen_socdist_work="other",
-    gen_socdist_other=c(0.5, 0.8),
-    symptomatic_contact=0.5,
-    gen_socdist_start="incidence",
-    gen_socdist_schedule_filter_on_threshold=c(1/10000)
+    gen_socdist_stop = non_stop,
+    gen_socdist_house =1,
+    gen_socdist_school = 1,
+    gen_socdist_work = "other",
+    gen_socdist_other = soc_iso_lvls,
+    symptomatic_contact = self_iso,
+    gen_socdist_start = "incidence",
+    gen_socdist_schedule_filter_on_threshold = c(1/10000)
   ),
   individual_only=list()
 )
 
-# #50% self-isolation and 50% social distancing
-# scenario_3 <- set_scenario_combinations(
-#   combine_each=list(
-#     gen_socdist=T,
-#     gen_socdist_stop=c(12),
-#     gen_socdist_house=1,
-#     gen_socdist_school="other",
-#     gen_socdist_work="other",
-#     gen_socdist_other=c(0.5),
-#     symptomatic_contact=0.5,
-#     gen_socdist_start="incidence",
-#     gen_socdist_schedule_filter_on_threshold=c(1/10000)
-#   ),
-#   individual_only=list()
-# )
+scenario_lockdowns <- set_scenario_combinations(
+  combine_each=list(
+    gen_socdist=T,
+    gen_socdist_stop = stop_times,
+    gen_socdist_house =1,
+    gen_socdist_school = no_school,
+    gen_socdist_work = "other",
+    gen_socdist_other = soc_iso_lvls,
+    symptomatic_contact = self_iso,
+    gen_socdist_start = "incidence",
+    gen_socdist_schedule_filter_on_threshold = c(1/10000)
+  ),
+  individual_only=list()
+)
 
 shielding_coverage <- (1:4)/5
 shielding_eff <- (1:4)/5

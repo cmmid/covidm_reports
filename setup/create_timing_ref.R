@@ -21,8 +21,6 @@ day0timing = fread(.args[3], colClasses = c(date="Date"))
 target = tail(.args, 2)[1]
 outfile = tail(.args, 1)
 
-namenorm <- function(n) gsub(" ","",gsub("[^a-zA-Z]","",tolower(as.character(n))))
-
 intro0date <- day0timing[iso==target, date]
 if (!length(intro0date)) intro0date <- NA
 

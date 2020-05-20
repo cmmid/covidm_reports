@@ -43,6 +43,7 @@ LMICparams_set.txt: LMIC.txt
 ${OUTDIR}/%/params_set.rds: create_params_set.R ${INDIR}/data_contacts_missing.csv
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $* $@
+# TODO: write override for Cox's Bazar Camp
 
 
 ###############################################################################
