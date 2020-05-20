@@ -1,8 +1,13 @@
 
-LMICreps.txt: LMIC.txt
-	sed "s/$$/\/report\.pdf/" $^ > $@
+# TODO start passing these in from linking makefile
+COVIDMPATH ?= ../../covidm
+DATADIR ?= ~/Dropbox/covidm_reports
+INTINPUTDIR := ${DATADIR}/hpc_inputs
+HPCDIR ?= ~/Dropbox/covidm_hpc_output
 
-${HPCDIR}/%/peak.qs: digest.R
+# also depends on other bits, but 001 guaranteed to change if
+# run sim has changed
+${HPCDIR}/%/peak.qs: digest.R ${HPCDIR}/%/001.qs
 	Rscript $^ $@
 
 ${HPCDIR}/%/accs.qs ${HPCDIR}/%/alls.qs: ${HPCDIR}/%/peak.qs
@@ -11,11 +16,12 @@ ${HPCDIR}/%.qs: run_scenarios.R helper_functions.R
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
-testqs1: ${HPCDIR}/palestine/001.qs
+# if asking local examples; uses % length to differentiate between local
+# and HPC runs
+%.qs: run_scenarios.R helper_functions.R
+	mkdir -p $(@D)
+	SIMRUNS=10 time Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
-testqs: $(patsubst %,${HPCDIR}/palestine/%.qs,$(shell seq -f%03g 2 51))
-
-tmpdig: ${HPCDIR}/palestine/peak.qs
 
 # TODO: this depends on the all countries, peak|accs|001.qs
 ${HPCDIR}/summary.tar.gz:

@@ -1,7 +1,4 @@
 
-# if necessary, use another file in this directory to override locations
--include local.makefile
-
 COVIDMPATH ?= ../../covidm
 DATADIR ?= ~/Dropbox/covidm_reports
 #DATADIR ?= ~/Dropbox/covidm_test
@@ -11,6 +8,7 @@ OUTDIR := ${DATADIR}/hpc_inputs
 
 R = Rscript $^ $@
 
+# TODO other directory structure dependencies
 ${OUTDIR}:
 	mkdir -p $@
 

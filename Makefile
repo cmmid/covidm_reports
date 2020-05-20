@@ -15,3 +15,7 @@ R = Rscript $^ $@
 # all setup; TODO move to subdirectory
 
 include setup/setup.makefile
+
+include plotting/plotting.makefile
+
+include simulate/simulate.makefile

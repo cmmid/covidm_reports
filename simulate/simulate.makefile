@@ -3,27 +3,19 @@
 # to see more easily if anything is error-ing / what's updating:
 # make -k runsetup | grep -v 'is up to date'
 
-SETUPFILES := $(patsubst %,setup/%.txt,LMICparams_set LMICinits LMICcontact_matrices)
-
-setupfiles: ${SETUPFILES}
-
-cleansetup:
-	rm -f ${SETUPFILES}
-
 simulate/LMIC%.txt:
-	make -C $(@D) $(@F)
+	@cd simulate && make $(@F)
 
-REPS := $(addprefix ${INTINPUTDIR}/,$(shell cat setup/LMICreps.txt))
-
-runsetup: allinits allparamsets allcontactmatrices
-
-%/timing.rds: FORCE
-	@cd simulate && make $@
-
-%/contact_matrices.rds: FORCE
-	@cd simulate && make $@
-
-%/params_set.rds: FORCE
+%.qs: FORCE
 	@cd simulate && make $@
 
 FORCE:
+
+SCENMAX := $(shell Rscript -e "cat(tail(readRDS('${INTINPUTDIR}/scenarios_overview.rds')[['index']], 1))")
+ALLSCENIDS := $(shell seq -f%03g 2 ${SCENMAX})
+
+testunmit: CPV/001.qs
+
+testallqs: $(patsubst %,CPV/%.qs,${ALLSCENIDS})
+
+testdigest: CPV/peak.qs
