@@ -309,7 +309,7 @@ for(i in 1:nrow(run_options)){
         cm_iv_set(iv,
                   as.Date(params$date0) + start_day,
                   as.Date(params$date0) + ifelse(is.finite(end_day),end_day,1e3),
-                  fIs = 1-self_iso,
+                  fIs = rep(1-self_iso, 16),
                   contact = 1-contact # TODO: manage splits
         )
       })
