@@ -128,6 +128,8 @@ burden_processes = list(
   cm_track_process("to_icu", "icu", icustay),
   # track ward prevalence
   cm_track_process("to_nonicu", "nonicu", nonicustay),
+  # track infections
+  cm_track_process("E", "infection", 1, report="i"),
   # send some cases to death, tracking outcidence
   cm_multinom_process(
     "Ip",
@@ -194,6 +196,7 @@ params2$pop <- lapply(params2$pop, popnorm)
 params2$pop[[2]]$seed_times <- 1e6
 
 #normal mixing between populations
+# TODO: incorrect! needs weighting by population size
 params2$travel <- matrix(rep(1, 4), 2)
 
 #params2$time1 <- as.Date(params2$time1)

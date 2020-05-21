@@ -12,16 +12,24 @@ ${HPCDIR}/%/peak.qs: digest.R ${HPCDIR}/%/001.qs
 
 ${HPCDIR}/%/accs.qs ${HPCDIR}/%/alls.qs: ${HPCDIR}/%/peak.qs
 
-${HPCDIR}/%.qs: run_scenarios.R helper_functions.R
+${HPCDIR}/%.qs: run_scenarios.R
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
 # if asking local examples; uses % length to differentiate between local
 # and HPC runs
-%.qs: run_scenarios.R helper_functions.R
-	mkdir -p $(@D)
-	SIMRUNS=10 time Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
+%.qs: run_scenarios.R
+	@mkdir -p $(@D)
+	SIMRUNS=10 Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
+SCENMAX := $(shell Rscript -e "cat(max(readRDS('${INTINPUTDIR}/alt_scenarios.rds')[['scen_id']]))")
+ALLSCENIDS := $(shell seq -f%03g 2 ${SCENMAX})
+
+testunmit: CPV/001.qs
+
+testallqs: $(patsubst %,CPV/%.qs,${ALLSCENIDS})
+
+testdigest: CPV/peak.qs
 
 # TODO: this depends on the all countries, peak|accs|001.qs
 ${HPCDIR}/summary.tar.gz:
