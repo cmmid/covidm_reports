@@ -1,4 +1,6 @@
 
+-include ../local.makefile
+
 # TODO start passing these in from linking makefile
 COVIDMPATH ?= ../../covidm
 DATADIR ?= ~/Dropbox/covidm_reports
@@ -16,20 +18,13 @@ ${HPCDIR}/%.qs: run_scenarios.R
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
+SIMRUNS ?= 10
+
 # if asking local examples; uses % length to differentiate between local
 # and HPC runs
 %.qs: run_scenarios.R
 	@mkdir -p $(@D)
-	SIMRUNS=10 Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
-
-SCENMAX := $(shell Rscript -e "cat(max(readRDS('${INTINPUTDIR}/alt_scenarios.rds')[['scen_id']]))")
-ALLSCENIDS := $(shell seq -f%03g 2 ${SCENMAX})
-
-testunmit: CPV/001.qs
-
-testallqs: $(patsubst %,CPV/%.qs,${ALLSCENIDS})
-
-testdigest: CPV/peak.qs
+	SIMRUNS=${SIMRUNS} Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
 # TODO: this depends on the all countries, peak|accs|001.qs
 ${HPCDIR}/summary.tar.gz:

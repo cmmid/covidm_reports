@@ -6,16 +6,23 @@
 simulate/LMIC%.txt:
 	@cd simulate && make $(@F)
 
+SIMRUNS ?= 10
+
 %.qs: FORCE
-	@cd simulate && make $@
+	@SIMRUNS=${SIMRUNS} cd simulate && make $@
 
 FORCE:
 
-SCENMAX := $(shell Rscript -e "cat(tail(readRDS('${INTINPUTDIR}/scenarios_overview.rds')[['index']], 1))")
+SCENMAX := $(shell Rscript -e "cat(max(readRDS('${INTINPUTDIR}/alt_scenarios.rds')[['scen_id']]))")
 ALLSCENIDS := $(shell seq -f%03g 2 ${SCENMAX})
 
-testunmit: CPV/001.qs
+TESTISO ?= CPV
 
-testallqs: $(patsubst %,CPV/%.qs,${ALLSCENIDS})
+testunmit: ${TESTISO}/001.qs
 
-testdigest: CPV/peak.qs
+testallqs: $(patsubst %,${TESTISO}/%.qs,${ALLSCENIDS})
+
+testdigest: ${TESTISO}/peak.qs
+
+testclean:
+	rm simulate/${TESTISO}/*.qs

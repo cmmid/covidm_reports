@@ -4,9 +4,9 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "../covidm", "CPV", "045", 
+  "../covidm", "ZWE", "001", 
   sprintf("~/Dropbox/covidm_reports/hpc_inputs"),
-  "simulate/CPV/045.qs"
+  "simulate/ZWE/001.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
 # load covidm

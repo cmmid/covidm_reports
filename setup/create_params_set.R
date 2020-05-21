@@ -128,8 +128,8 @@ burden_processes = list(
   cm_track_process("to_icu", "icu", icustay),
   # track ward prevalence
   cm_track_process("to_nonicu", "nonicu", nonicustay),
-  # track infections
-  cm_track_process("E", "infection", 1, report="i"),
+  # track infections - get from delta R prevalence
+#  cm_track_process("S", "infection", pignore, report="i"),
   # send some cases to death, tracking outcidence
   cm_multinom_process(
     "Ip",

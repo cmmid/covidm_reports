@@ -1,4 +1,6 @@
 
+-include ../local.makefile
+
 COVIDMPATH ?= ../../covidm
 DATADIR ?= ~/Dropbox/covidm_reports
 #DATADIR ?= ~/Dropbox/covidm_test

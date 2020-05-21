@@ -25,7 +25,7 @@ extract_cm <- function(
   estimated.contact.age = "sample",
   estimated.participant.age = "sample",
   n = runs, bootstrap = TRUE, symmetric = FALSE,
-  age.limits = seq(0, by = 5, length.out = 15),
+  age.limits = seq(0, by = 5, length.out = 16),
   ...
 ) {
   inargs <- c(as.list(environment()), list(...))
