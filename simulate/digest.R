@@ -4,21 +4,12 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "caboverde/peak.qs"
+  "simulate/CPV/peak.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
 refprobs <- c(lo.lo=0.025, lo=0.25, med=0.5, hi=0.75, hi.hi=0.975)
 
 simfns <- sort(list.files(dirname(.args[1]), "\\d+\\.qs", full.names = TRUE))
-
-# readsimf <- function(fn) {
-#   res <- qread(fn)[, w := (t-1) %/% 7 ][w < 52]
-#   res[,{
-#     FUN <- if (compartment %like% "_p") max else sum
-#     .(value = FUN(value))
-#   },by=.(run,w,age,compartment)]
-#   res
-# }
 
 ref <- qread(simfns[1])
 
@@ -55,24 +46,23 @@ all.expand <- data.table(expand.grid(
 
 full <- function(dt, scen_id) {
   inc <- dt[inc.expander, on=.(run, age, compartment, t)]
-  date0 <- inc[t==0 & !is.na(date), date[1]]
-  inc[is.na(value), c("value","date") := .(0L, t+date0) ]
+  inc[is.na(value), value := 0L ]
   prev <- dt[prev.expander, on=.(run, age, compartment, t)]
-  prev[is.na(value), c("value","date") := .(0L, t+date0) ]
+  prev[is.na(value), value := 0L ]
   tmp <- rbind(inc, prev)
   # make the all ages category
-  tmp <- rbind(tmp, tmp[,.(value = sum(value), age = "all"),by=.(run, t, date, compartment)])
+  tmp <- rbind(tmp, tmp[,.(value = sum(value), age = "all"),by=.(run, t, compartment)])
   # make the all hospitalization category
-  tmp <- rbind(tmp, tmp[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp_p"),by=.(run, t, date, age)])
+  tmp <- rbind(tmp, tmp[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp_p"),by=.(run, t, age)])
   rm(inc, prev)
-  qtmp <- tmp[order(t),.(t, date, value = cumsum(value)), by=.(run, age, compartment)][,{
+  qtmp <- tmp[order(t),.(t, value = cumsum(value)), by=.(run, age, compartment)][,{
     qs <- quantile(value, probs = refprobs)
     names(qs) <- names(refprobs)
     as.list(qs)
-  }, by=.(compartment, t, date, age)]
+  }, by=.(compartment, t, age)]
   
   return(qtmp[order(t),.(
-    t, date,
+    t,
     lo.lo = diff(c(0,lo.lo)),
     lo = diff(c(0,lo)),
     med = diff(c(0,med)),
@@ -97,7 +87,7 @@ full <- function(dt, scen_id) {
 peak_value <- function(dt, comp = "cases") {
   ret <- dt[compartment == comp,.SD[which.max(value)], by=.(run, compartment, age)]
   retadd <- dt[
-    compartment == comp,.(value = sum(value)), by=.(run, t, date, compartment)
+    compartment == comp,.(value = sum(value)), by=.(run, t, compartment)
   ][,
     .SD[which.max(value)],
     by=.(run, compartment)
@@ -106,10 +96,10 @@ peak_value <- function(dt, comp = "cases") {
 }
 
 cumul <- function(dt, comp = "cases") {
-  tmp <- dt[compartment == comp][order(t),.(t, date, value = cumsum(value)), keyby=.(run, age)]
-  retadd <- dt[compartment == comp][,.(value = sum(value)), keyby=.(run, t, date)][order(t), .(age="all", t, date, value=cumsum(value)), keyby=.(run)]
+  tmp <- dt[compartment == comp][order(t),.(t, value = cumsum(value)), keyby=.(run, age)]
+  retadd <- dt[compartment == comp][,.(value = sum(value)), keyby=.(run, t)][order(t), .(age="all", t, value=cumsum(value)), keyby=.(run)]
   ret <- rbind(tmp, retadd)[expander, on=.(run, age, t), roll = TRUE, rollends = c(F, F)]
-  setkey(ret[!is.na(value)], run, t, date, age)[, compartment := comp ][, measure := "acc" ]
+  setkey(ret[!is.na(value)], run, t, age)[, compartment := comp ][, measure := "acc" ]
 }
 
 exp_prevalence <- function(dt, comp) {
@@ -125,7 +115,7 @@ combine_hosp_p <- function(dt) {
     exp_prevalence(dt, "icu_p"),
     exp_prevalence(dt, "nonicu_p")
   )
-  comb[, .(value = sum(value), compartment = "hosp_p"), keyby=.(run, t, date, age)]
+  comb[, .(value = sum(value), compartment = "hosp_p"), keyby=.(run, t, age)]
 }
 
 calcAll <- function(dt) {
@@ -152,9 +142,44 @@ accref <- refvalues[measure == "acc"][all.expand, on=.(run, compartment, age, t)
 accref[is.na(value), value := 0 ]
 accref[is.na(measure), measure := "acc" ]
 
-peaks <- list()
-accs <- list()
+accs <- list(
+  melt(
+    accref[t %in% milestones][,
+      .(
+       value = value,
+       run, compartment, age, measure, t
+      ),
+    ],
+    id.vars = c("run","compartment", "age", "t"),
+    measure.vars = c("value"),
+    variable.name = "metric"
+  )[, {
+    qs <- quantile(value, probs = refprobs, na.rm = TRUE)
+    names(qs) <- names(refprobs)
+    as.list(qs)
+  }, keyby=.(metric, compartment, age, t)][, scen_id := 1 ]
+)
+
 alls <- list(full(ref, 1))
+
+peaks <- list(
+  melt(refvalues[
+    measure == "peak",
+    .(
+      value = value,
+      timing = t,
+      run, compartment, age, measure
+    )
+    ],
+    id.vars = c("run","compartment", "age"),
+    measure.vars = c("value","timing"),
+    variable.name = "metric"
+  )[, {
+    qs <- quantile(value, probs = refprobs)
+    names(qs) <- names(refprobs)
+    as.list(qs)
+  }, keyby=.(metric, compartment, age)][, scen_id := 1L ]
+)
 
 for (ind in seq_along(simfns[-1])) {
   scen <- simfns[ind+1]
@@ -172,7 +197,7 @@ for (ind in seq_along(simfns[-1])) {
     compar_peak[,
       .(
         value = value,
-        timing = t, dating = date,
+        timing = t,
         delay = t-i.t,
         reduction = i.value - value,
         effectiveness = ifelse(i.value == value, 0, (i.value - value)/i.value), run, compartment, age, measure)
@@ -213,8 +238,8 @@ for (ind in seq_along(simfns[-1])) {
   }, keyby=.(metric, compartment, age, t)]
   rm(compar_acc)
   
-  peaks[[ind]] <- qs_peak[, scen_id := scen_id ]
-  accs[[ind]] <- qs_acc[, scen_id := scen_id ]
+  peaks[[ind + 1]] <- qs_peak[, scen_id := scen_id ]
+  accs[[ind + 1]] <- qs_acc[, scen_id := scen_id ]
   alls[[ind + 1]] <- full(raw.dt, scen_id)
 }
 

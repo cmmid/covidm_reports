@@ -22,6 +22,9 @@ SIMRUNS ?= 10
 
 # if asking local examples; uses % length to differentiate between local
 # and HPC runs
+%/peak.qs: digest.R %/001.qs
+	Rscript $^ $@
+
 %.qs: run_scenarios.R
 	@mkdir -p $(@D)
 	SIMRUNS=${SIMRUNS} Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
