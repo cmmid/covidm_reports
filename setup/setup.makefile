@@ -5,12 +5,12 @@
 
 SETUPFILES := $(patsubst %,setup/%.txt,LMICparams_set LMICinits LMICcontact_matrices)
 
-setupfiles: ${SETUPFILES}
+setupfiles: ${SETUPFILES} ${GENDIR}/data_contacts_missing.csv
 
 cleansetup:
 	rm -f ${SETUPFILES}
 
-setup/LMIC%.txt:
+setup/LMIC%.txt: FORCE
 	make -C $(@D) $(@F)
 
 CMS := $(addprefix ${INTINPUTDIR}/,$(shell cat setup/LMICcontact_matrices.txt))
@@ -23,7 +23,7 @@ allparamsets: ${PSS}
 
 allinits: ${INITS}
 
-runsetup: allinits allparamsets allcontactmatrices
+runsetup: allinits allparamsets allcontactmatrices ${INTINPUTDIR}/alt_scenarios.rds
 
 %/timing.rds: FORCE
 	@cd setup && make $@
@@ -32,6 +32,9 @@ runsetup: allinits allparamsets allcontactmatrices
 	@cd setup && make $@
 
 %/params_set.rds: FORCE
+	@cd setup && make $@
+
+%/alt_scenarios.rds: FORCE
 	@cd setup && make $@
 
 FORCE:

@@ -7,26 +7,40 @@ suppressPackageStartupMessages({
   "simulate/CPV/peak.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
-refprobs <- c(lo.lo=0.025, lo=0.25, med=0.5, hi=0.75, hi.hi=0.975)
+aggregate.age <- function(dt) {
+  setkeyv(rbind(
+    dt[age != "all"],
+    dt[age != "all", .(value = sum(value), age = "all") , by=setdiff(colnames(dt),c("age","value"))]
+  ), key(dt))
+}
+
+aggregate.hosp <- function(dt) {
+  setkeyv(rbind(
+    dt[compartment != "hosp_p"],
+    dt[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp") , by=setdiff(colnames(dt),c("compartment","value"))]
+  ), key(dt))
+}
+
+aggregate.both <- function(dt) aggregate.hosp(aggregate.age(dt))
 
 simfns <- sort(list.files(dirname(.args[1]), "\\d+\\.qs", full.names = TRUE))
+ref <- aggregate.both(qread(simfns[1]))
 
-ref <- qread(simfns[1])
+refprobs <- c(lo.lo=0.025, lo=0.25, med=0.5, hi=0.75, hi.hi=0.975)
 
 dys <- 0:(2*365)
 milestones <- c(seq(30,90,by=30),seq(180,max(dys),by=90))
 
-
 expander <- data.table(expand.grid(
   run=1:max(ref$run),
-  age=factor(c(levels(ref$age), "all"), ordered = TRUE),
+  age=factor(unique(c(levels(ref$age), "all")), ordered = TRUE),
   t=dys
 ))
 
 inc.expander <- data.table(expand.grid(
   run=1:max(ref$run),
-  age=factor(c(levels(ref$age), "all"), ordered = TRUE),
-  compartment=c("cases","death_o", "E"),
+  age=factor(unique(c(levels(ref$age), "all")), ordered = TRUE),
+  compartment=c("cases", "death_o"),
   t=dys
 ))
 
@@ -37,38 +51,49 @@ prev.expander <- data.table(expand.grid(
   t=dys
 ))
 
-all.expand <- data.table(expand.grid(
+cprev.expander <- data.table(expand.grid(
   run=1:max(ref$run),
   age=factor(c(levels(ref$age), "all"), ordered = TRUE),
-  compartment=c("cases","death_o", "E","hosp_p","nonicu_p","icu_p"),
+  compartment="R",
   t=dys
 ))
 
+all.expand <- data.table(expand.grid(
+  run=1:max(ref$run),
+  age=factor(c(levels(ref$age), "all"), ordered = TRUE),
+  compartment=c("cases","death_o", "R", "hosp_p","nonicu_p","icu_p"),
+  t=dys
+))
+
+qdt <- function(dt) dt[,{
+  qs <- quantile(value, probs = refprobs)
+  names(qs) <- names(refprobs)
+  as.list(qs)
+}, by=.(compartment, t, age)]
+
+#' assumes dt is already aggregated
 full <- function(dt, scen_id) {
   inc <- dt[inc.expander, on=.(run, age, compartment, t)]
   inc[is.na(value), value := 0L ]
   prev <- dt[prev.expander, on=.(run, age, compartment, t)]
   prev[is.na(value), value := 0L ]
-  tmp <- rbind(inc, prev)
-  # make the all ages category
-  tmp <- rbind(tmp, tmp[,.(value = sum(value), age = "all"),by=.(run, t, compartment)])
-  # make the all hospitalization category
-  tmp <- rbind(tmp, tmp[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp_p"),by=.(run, t, age)])
+  cprev <- dt[cprev.expander, on=.(run, age, compartment, t), roll = TRUE]
+  cprev[is.na(value), value := 0L ]
+  qcprev <- qdt(cprev)
+  qtmp <- qdt(rbind(inc, prev)[order(t),.(t, value = cumsum(value)), by=.(run, age, compartment)])
   rm(inc, prev)
-  qtmp <- tmp[order(t),.(t, value = cumsum(value)), by=.(run, age, compartment)][,{
-    qs <- quantile(value, probs = refprobs)
-    names(qs) <- names(refprobs)
-    as.list(qs)
-  }, by=.(compartment, t, age)]
   
-  return(qtmp[order(t),.(
-    t,
-    lo.lo = diff(c(0,lo.lo)),
-    lo = diff(c(0,lo)),
-    med = diff(c(0,med)),
-    hi = diff(c(0,hi)),
-    hi.hi = diff(c(0,hi.hi))
-  ),keyby=.(compartment, age)][, scen_id := scen_id ])
+  return(setkey(rbind(
+    qtmp[order(t),.(
+      t,
+      lo.lo = diff(c(0,lo.lo)),
+      lo = diff(c(0,lo)),
+      med = diff(c(0,med)),
+      hi = diff(c(0,hi)),
+      hi.hi = diff(c(0,hi.hi))
+    ), keyby=.(compartment, age)],
+    qcprev
+  ), compartment, age)[, scen_id := scen_id ])
 }
 
 
@@ -85,54 +110,44 @@ full <- function(dt, scen_id) {
 #'   * total nonicu days 3/6/9/12 mos out
 
 peak_value <- function(dt, comp = "cases") {
-  ret <- dt[compartment == comp,.SD[which.max(value)], by=.(run, compartment, age)]
-  retadd <- dt[
-    compartment == comp,.(value = sum(value)), by=.(run, t, compartment)
-  ][,
-    .SD[which.max(value)],
-    by=.(run, compartment)
-  ][, age := "all"]
-  setkey(rbind(ret, retadd), run, age)[, measure := "peak" ]
+  dt[compartment == comp,.SD[which.max(value)], by=.(run, compartment, age)][, measure := "peak" ]
 }
 
 cumul <- function(dt, comp = "cases") {
-  tmp <- dt[compartment == comp][order(t),.(t, value = cumsum(value)), keyby=.(run, age)]
-  retadd <- dt[compartment == comp][,.(value = sum(value)), keyby=.(run, t)][order(t), .(age="all", t, value=cumsum(value)), keyby=.(run)]
-  ret <- rbind(tmp, retadd)[expander, on=.(run, age, t), roll = TRUE, rollends = c(F, F)]
-  setkey(ret[!is.na(value)], run, t, age)[, compartment := comp ][, measure := "acc" ]
+  ret <- dt[
+    compartment == comp
+  ][
+    order(t),.(t, value = cumsum(value)), keyby=.(run, age)
+  ][
+    expander, on=.(run, age, t), roll = TRUE, rollends = c(F, T)
+  ]
+  ret[is.na(value), value := 0]
+  setkey(ret, run, t, age)[, compartment := comp ][, measure := "acc" ]
 }
 
 exp_prevalence <- function(dt, comp) {
   ret <- dt[compartment == comp][
     expander[age != "all"], on=.(run, age, t),
-    roll = T, rollends = c(F, F)
-    ]
-  ret[!is.na(value)]
-}
-
-combine_hosp_p <- function(dt) {
-  comb <- rbind(
-    exp_prevalence(dt, "icu_p"),
-    exp_prevalence(dt, "nonicu_p")
-  )
-  comb[, .(value = sum(value), compartment = "hosp_p"), keyby=.(run, t, age)]
+    roll = F, rollends = c(F, F)
+  ]
+  ret[is.na(value), value := 0L]
+  ret
 }
 
 calcAll <- function(dt) {
-  hospdt <- combine_hosp_p(dt)
   rbind(
     peak_value(dt), # peak cases
     peak_value(dt, "death_o"), # peak deaths
-    peak_value(dt, "E"), # peak infections
+    peak_value(dt, "R"), # peak infections
     cumul(dt), # cumulative cases
     cumul(dt, "death_o"), # cumulative deaths
-    cumul(dt, "E"), # cumulative infections
+    dt[compartment == "R"][, measure := "acc" ], # cumulative infections
     peak_value(dt, comp = "icu_p"),
     peak_value(dt, comp = "nonicu_p"),
-    peak_value(hospdt, comp = "hosp_p"),
+    peak_value(dt, comp = "hosp_p"),
     cumul(exp_prevalence(dt,"icu_p"), "icu_p"),
     cumul(exp_prevalence(dt,"nonicu_p"), "nonicu_p"),
-    cumul(hospdt, comp = "hosp_p")
+    cumul(dt, comp = "hosp_p")
   )
 }
 
@@ -184,7 +199,7 @@ peaks <- list(
 for (ind in seq_along(simfns[-1])) {
   scen <- simfns[ind+1]
   scen_id <- as.integer(gsub("^.+/(\\d+)\\.qs$","\\1", scen))
-  raw.dt <- qread(scen)
+  raw.dt <- aggregate.both(qread(scen))
   scenres <- calcAll(raw.dt)
   compar_peak <- scenres[
     measure == "peak"

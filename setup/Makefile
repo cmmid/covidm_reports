@@ -57,3 +57,7 @@ ${OUTDIR}/%/timing.rds: create_timing_ref.R ${OUTDIR}/../generation/data_contact
 ../data/interventions/digested.csv ../data/introductions/digested.csv
 	mkdir -p $(@D)
 	Rscript $^ $* $@
+
+${OUTDIR}/alt_scenarios.rds: generate_scenario_parameters.R
+	Rscript $^ ../utils/report_ref.rds $@
+

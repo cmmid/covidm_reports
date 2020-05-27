@@ -8,6 +8,11 @@ SREPDIR := ${SYDIR}/COVID_projections_reports
 
 DATE ?= $(shell date +%Y_%m_%d)
 
+R = Rscript $^ $@
+
+sharedconst.rda: sharedconst.R report_ref.rds
+	${R}
+
 version: ${OUTDIR}/${DATE}_archive.tar.gz ${REPDIR}/${DATE}_archive.tar.gz
 
 zipcsvs: ${OUTDIR}/${DATE}_csvs.tar.gz

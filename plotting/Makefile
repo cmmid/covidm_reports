@@ -4,6 +4,10 @@ INTINPUTDIR := ${DATADIR}/hpc_inputs
 
 R = Rscript $^ $@
 
+#PLOTRS := $(shell ls *.R)
+
+#allsupport: $(patsubst %.R,%.rda,${PLOTRS})
+
 plotfuns.rda: plotting_support.R
 	${R}
 

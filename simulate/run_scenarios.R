@@ -356,7 +356,7 @@ for(i in 1:nrow(run_options)){
 
   result <- reduce_ages(
     sim[
-      compartment %in% c("cases","death_o","icu_p","nonicu_p","infections")
+      compartment %in% c("cases","death_o","icu_p","nonicu_p","R")
     ]
   )[,
     .(value = sum(value)),
