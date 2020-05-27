@@ -6,7 +6,7 @@
 simulate/LMIC%.txt:
 	@cd simulate && make $(@F)
 
-SIMRUNS ?= 10
+SIMRUNS ?= 2
 
 %.qs: FORCE
 	@SIMRUNS=${SIMRUNS} cd simulate && make $@

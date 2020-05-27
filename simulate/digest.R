@@ -4,7 +4,7 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "simulate/CPV/peak.qs"
+  "simulate/CPV/001.qs", "simulate/CPV/peak.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
 aggregate.age <- function(dt) {
@@ -17,7 +17,7 @@ aggregate.age <- function(dt) {
 aggregate.hosp <- function(dt) {
   setkeyv(rbind(
     dt[compartment != "hosp_p"],
-    dt[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp") , by=setdiff(colnames(dt),c("compartment","value"))]
+    dt[compartment %in% c("nonicu_p","icu_p"),.(value = sum(value), compartment = "hosp_p") , by=setdiff(colnames(dt),c("compartment","value"))]
   ), key(dt))
 }
 
@@ -47,7 +47,7 @@ inc.expander <- data.table(expand.grid(
 prev.expander <- data.table(expand.grid(
   run=1:max(ref$run),
   age=factor(c(levels(ref$age), "all"), ordered = TRUE),
-  compartment=c("nonicu_p","icu_p"),
+  compartment=c("nonicu_p","icu_p","hosp_p"),
   t=dys
 ))
 

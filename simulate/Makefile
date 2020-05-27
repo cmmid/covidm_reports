@@ -18,7 +18,7 @@ ${HPCDIR}/%.qs: run_scenarios.R
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
-SIMRUNS ?= 10
+SIMRUNS ?= 2
 
 # if asking local examples; uses % length to differentiate between local
 # and HPC runs
