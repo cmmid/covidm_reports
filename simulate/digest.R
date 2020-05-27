@@ -142,12 +142,12 @@ calcAll <- function(dt) {
     cumul(dt), # cumulative cases
     cumul(dt, "death_o"), # cumulative deaths
     dt[compartment == "R"][, measure := "acc" ], # cumulative infections
-    peak_value(dt, comp = "icu_p"),
-    peak_value(dt, comp = "nonicu_p"),
-    peak_value(dt, comp = "hosp_p"),
-    cumul(exp_prevalence(dt,"icu_p"), "icu_p"),
-    cumul(exp_prevalence(dt,"nonicu_p"), "nonicu_p"),
-    cumul(dt, comp = "hosp_p")
+    peak_value(dt, "icu_p"),
+    peak_value(dt, "nonicu_p"),
+    peak_value(dt, "hosp_p"),
+    cumul(dt, "icu_p"),
+    cumul(dt, "nonicu_p"),
+    cumul(dt, "hosp_p")
   )
 }
 
