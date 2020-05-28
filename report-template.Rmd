@@ -115,7 +115,7 @@ This report provides simulation-based estimates for COVID-19 epidemic scenarios 
 
 # Unmitigated COVID-19 Epidemic Trajectory
 
-The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of COVID-19 cases and deaths in `r params$location`, and daily demand for hospital care. The ranges for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable) (by 50% and 95% forecast intervals); Table \@ref(tab:uncumulative1) covers total counts by `r pasteAnd(milestones/30)` months from initial introduction in `r params$location`.
+The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of COVID-19 cases and deaths in `r params$location`, and daily demand for hospital care. The ranges for peak timing and values for those outcomes are summarised in Table \@ref(tab:unpeakstable) (by 50% and 95% forecast intervals); Table \@ref(tab:uncumulative1) covers total counts by `r pasteAnd(milestones/30)` months from initial introduction in `r params$location`.
 
 ```{r}
 unmit.q <- meltquantiles(params$alls[scen_id == 1])
@@ -384,7 +384,7 @@ landscape(mkkbl(
 
 # Intervention Scenarios
 
-The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The IQR and 95% intervals for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable). Fig. \@ref(fig:cumtsint) shows the relative trajectories in total outcomes, with Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction. Note that these reduction may rise and decline with time: as Fig. \@ref(fig:cumtsint) shows, some interventions have large initial impact by delaying an epidemic, but ultimately many of the cases still happen.
+The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The IQR and 95% intervals for peak timing and values for those outcomes are summarised in Table \@ref(tab:intpeakstable). Fig. \@ref(fig:cumtsint) shows the relative trajectories in total outcomes, Table \@ref(tab:intcumulative1) shows cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction. Note that these reduction may rise and decline with time: as Fig. \@ref(fig:cumtsint) shows, some interventions have large initial impact by delaying an epidemic, but ultimately many of the cases still happen.
 
 - We assumed these interventions are applied at the country level.
 - General physical distancing was implemented as a reduction in contacts, and thus transmission, for all interactions outside the household. We assumed no change in transmission within the household.
