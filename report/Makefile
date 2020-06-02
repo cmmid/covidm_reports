@@ -15,6 +15,16 @@ template.Rmd $(addprefix ../plotting/,${PLOTREF}) COVID.bib
 	${INTINPUTDIR} ${INTINPUTDIR}/../generation/data_contacts_missing.csv \
 	$@
 
+# custom report
+${REPDIR}/IDP/report.pdf: report.R ${HPCDIR}/IDP/001.qs ${HPCDIR}/IDP/alls.qs \
+${HPCDIR}/IDP/accs.qs ${HPCDIR}/IDP/peak.qs \
+IDP.Rmd ../utils/sharedconst.rda ../plotting/plotfuns.rda COVID.bib
+	mkdir -p $(@D)
+	Rscript $(filter-out %.bib,$^) \
+	${INTINPUTDIR} ${INTINPUTDIR}/../generation/data_contacts_missing.csv \
+	$@
+
+
 %/report.pdf: report.R ../simulate/%/001.qs ../simulate/%/alls.qs \
 ../simulate/%/accs.qs ../simulate/%/peak.qs \
 template.Rmd ../utils/sharedconst.rda ../plotting/plotfuns.rda COVID.bib
