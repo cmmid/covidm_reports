@@ -96,25 +96,25 @@ typicalfmt <- "%s~~(%s)"
 
 # Overview
 
-This report provides simulation-based estimates for COVID-19 epidemic scenarios in `r params$location`. In this model, we use a population of `r mk(sum(params$poppyra$pop))` in `r params$location`, with an average age of `r signif(params$poppyra[, sum(per_by_group[-.N]*seq(2,by=5,length.out = .N-1))+per_by_group[.N]*87.5], 3)`, based on [@wpp;@wpprepo].
+This report provides modelled projections of COVID-19 epidemics in `r params$location` under different intervention scenarios. We use a population of `r mk(sum(params$poppyra$pop))` in `r params$location`, with an average age of `r signif(params$poppyra[, sum(per_by_group[-.N]*seq(2,by=5,length.out = .N-1))+per_by_group[.N]*87.5], 3)`, based on [@wpp;@wpprepo].
 
 - We use a transmission model to project the COVID-19 epidemic in `r params$location`; it accounts for the local age structure, as well as uncertainty in transmission due to uncertainty in $R_0$ and randomness in the process.
-- We consider an unmitigated epidemic (*i.e.*, no intervention), and then interventions combining  social distancing and shielding interventions to decrease transmission.
-- We estimate predicted peak counts and timing for `r params$location` in new symptomatic cases and deaths (incidence), as well as peaks in daily hospital demand (prevalence). We also calculated totals for these values, and compute the impact of the interventions relative to an unmitigated epidemic.
-- The totals for hospital demand are calculated in terms of person-days, which can be translated into the total required expenditure on hospitalised care at different levels.
-- Populations are based on demographics of `r params$location` and estimated contact patterns, and assume a single national population
-- The transmission model is based on global outbreak data, which have primarily been observed in Asia, Europe, and North America.
+- We consider an unmitigated epidemic (*i.e.*, no intervention), and then interventions combining  social distancing and shielding to decrease transmission.
+- We estimate predicted peak counts and timing for `r params$location` in new symptomatic cases and deaths (incidence), as well as peaks in daily hospital demand (prevalence). We also calculate totals for these values, and compute the impact of the interventions relative to an unmitigated epidemic.
+- The totals for hospital demand are calculated in terms of person-days, which can be translated into the total required expenditure on hospital care.
+- Population and demography is specific to `r params$location` and we use estimated contact patterns, and assume a single national population.
+- Parameters of the model are from epidemics primarily from Asia, Europe, and North America.
 - Severity rates are rescaled from the global setting. We assume that due to comorbidities, lower-middle income populations will have less benefit from age and will in general have higher rates of symptomatic disease.
-- We start the epidemic simulation with 50 initial infections, proportionally distributed according to the age demography of `r params$location`. We refer to this day 0 as the *initial introduction*. This corresponds roughly to when there were roughly 50 active infections in `r params$location`; due to under-reporting and subclinical disease, this cannot be directly determined from reported cases.
+- We start the epidemic simulation with 50 initial infections, proportionally distributed according to the age demography of `r params$location`. We refer to this as the *initial introduction*, and it corresponds roughly to when there were roughly 50 active infections in `r params$location`. This has been estimated using a correction for under-reporting and cannot be directly determined from reported cases.
 - These reports will be updated as information changes, and if `r params$location`-specific information on hospitalisation rates become available.
-- All numerical results are reported to two significant figures only, and are reported as interquartile (IQR) and 95% intervals.
+- All numerical results are reported to two significant figures only, and are reported as interquartile range (IQR) and 95% intervals.
 - Detailed modelling methods are given at the end of the report.
 
 *Please direct correspondence regarding these reports to [carl.pearson@lshtm.ac.uk](mailto:carl.pearson@lshtm.ac.uk). Source available at [https://github.com/cmmid/covidm_reports](https://github.com/cmmid/covidm_reports).*
 
 # Unmitigated COVID-19 Epidemic Trajectory
 
-The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of COVID-19 cases and deaths in `r params$location`, and daily demand for hospital care. The ranges for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable) (by 50% and 95% forecast intervals); Table \@ref(tab:uncumulative1) covers total counts by `r pasteAnd(milestones/30)` months from initial introduction in `r params$location`.
+The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of COVID-19 cases and deaths in `r params$location`, and daily demand for hospital care. The ranges for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable) (by IQR (50% interval) and 95% intervals); Table \@ref(tab:uncumulative1) covers total counts by `r pasteAnd(milestones/30)` months from initial introduction in `r params$location`.
 
 ```{r}
 unmit.q <- meltquantiles(params$alls[scen_id == 1])
@@ -233,7 +233,7 @@ boldL(kable_styling(
 
 \blandscape
 
-```{r tsunmit, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Unmitigated epidemics in %s. Time series and peak sizes for new symptomatic cases and deaths, general ward hospital demand, critical care hospital demand, and total hospital demand (general ward plus critical care). Both summary and by age group results are provided; population and underlying age groups from demography of %s. The different line transparency denotes different simulation quantiles; the lightest lines correspond to the 95\\%% interval, then darker the IQR, then the solid line the median. Cases and deaths reflect new daily events (incidence), while hospital demand reflects the number in hospital on that day (prevalence).", params$location, params$location)}
+```{r tsunmit, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Unmitigated epidemics in %s. Time series and peak sizes for new symptomatic cases and deaths, general ward hospital demand, critical care hospital demand, and total hospital demand (general ward plus critical care). Total and age group results are provided; using population and underlying age groups from demography of %s. Line transparency denotes different simulation quantiles; the lightest lines correspond to the 95\\%% interval, then darker the IQR, then the solid line the median. Cases and deaths reflect new daily events (incidence), while hospital demand reflects the number in hospital on each day (prevalence).", params$location, params$location)}
 
 #' TODO big panel, all ages, cases + deaths; update dates
 
@@ -385,13 +385,13 @@ landscape(mkkbl(
 
 # Intervention Scenarios
 
-The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The IQR and 95% intervals for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable). Fig. \@ref(fig:cumtsint) shows the relative trajectories in total outcomes, with Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction. Note that these reduction may rise and decline with time: as Fig. \@ref(fig:cumtsint) shows, some interventions have large initial impact by delaying an epidemic, but ultimately many of the cases still happen.
+The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The IQR and 95% intervals for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable). Fig. \@ref(fig:cumtsint) shows the relative trajectories in total outcomes, with Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction. Note that these reduction may rise and decline with time: as Fig. \@ref(fig:cumtsint) shows, some interventions have large initial impact by delaying an epidemic, but ultimately many of the cases still occur.
 
 - We assumed these interventions are applied at the country level.
 - General physical distancing was implemented as a reduction in contacts, and thus transmission, for all interactions outside the household. We assumed no change in transmission within the household.
-- Greenzone shielding (abbreviated "GZ") was implemented by stratifying the population in one shielded and one unshielded compartment. The GZ applies to those aged 60+ years. We assume shielding of this population has a coverage fraction, and reduction fraction; we refer to GZ interventions by coverage / reduction, so "80C-80R shielding" is 80% coverage of 80% contact reduction. Other results available upon request. In `r params$location`, 80% coverage corresponds to `r mk(params$poppyra[age == "60+", sum(pop)*.8])` individuals  or `r mk(params$poppyra[age == "60+", round(unique(per_by_age)*.8*100)])`% of the population, with half of those values for 40% coverage.
+- Greenzone shielding (abbreviated "GZ") was implemented by stratifying the population in one shielded and one unshielded compartment. The GZ applies to those aged 60+ years. We assume shielding of this population has a coverage fraction, and reduction fraction; we refer to GZ interventions by coverage / reduction, so "80C-80R shielding" is 80% coverage with 80% contact reduction to the shielded group. Other results available upon request. In `r params$location`, 80% coverage corresponds to `r mk(params$poppyra[age == "60+", sum(pop)*.8])` individuals  or `r mk(params$poppyra[age == "60+", round(unique(per_by_age)*.8*100)])`% of the population, with half of those values for 40% coverage.
 - To be effective, shielding must be maintained until the epidemic is over and must ensure that there is not substantially increased mixing amongst the shielded population.
-- We consider several interventions combined with "basic PHSM" - this means a general reduction in contact-based transmission (20% reduction) outside the home and a general reduction in transmission from symptomatic individuals (25% reduction)
+- We consider several interventions combined with "basic Public Health & Social Measures (PHSM)". PHSM is a 20% reduction in general contacts outside the home and a 25% reduction in transmission from symptomatic individuals corresponding to symptomatic people being encouraged to self-isolate.
 
 The % net reduction to cases, deaths, and hospitalised person-days in these scenarios, one year after initial introduction in `r params$location` is summarised in Table \@ref(tab:intsumtabl):
 
