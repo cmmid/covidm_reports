@@ -5,6 +5,8 @@
 #currently - throwing an error for regional plots when adding legend
 #working on: get legend from a plot - apply it to others
 
+#get_country_data stores files locally - need to specify the correct location to store geodata 
+#in the environment generating the reports. 
 
 suppressPackageStartupMessages({
   require(dplyr)
@@ -59,18 +61,6 @@ region_polys <- countries %>%
   #join attributes here
   mutate(dummy = runif(5, 0, 1))
 
-
-
-#define colour scale for whatever attribute by overall dataset (continent) - not region
-countries_fill_scale <- scale_fill_attribute(countries, 'dummy')
-regional_fill_scale <- scale_fill_attribute(region_polys, 'dummy')
-
-regional_plots <- lapply(regions, create_country_plot, attribute = 'dummy', colour_scale = countries_fill_scale)
-
-region_plot <- create_region_plot(region_polys = region_polys, attribute = 'dummy', regional_fill_scale)
-
-region_panel <- cowplot::plot_grid(plotlist = regional_plots)
-
 create_country_plot <- function(map_data, attribute, colour_scale){
   
   p <- ggplot() +
@@ -81,7 +71,7 @@ create_country_plot <- function(map_data, attribute, colour_scale){
     scale_y_input_bounds(map_data) +
     theme_void() +
     theme(legend.position = 'none')
-    
+  
   
   return(p)
   
@@ -101,4 +91,15 @@ create_region_plot <- function(region_polys, attribute, colour_scale){
   return(p)
   
 }
+
+#define colour scale for whatever attribute by overall dataset (continent) - not region
+countries_fill_scale <- scale_fill_attribute(countries, 'dummy')
+regional_fill_scale <- scale_fill_attribute(region_polys, 'dummy')
+
+regional_plots <- lapply(regions, create_country_plot, attribute = 'dummy', colour_scale = countries_fill_scale)
+
+region_plot <- create_region_plot(region_polys = region_polys, attribute = 'dummy', regional_fill_scale)
+
+region_panel <- cowplot::plot_grid(plotlist = regional_plots)
+
 
