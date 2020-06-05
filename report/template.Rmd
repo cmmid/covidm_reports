@@ -76,7 +76,6 @@ for (ph in params$plothelpers) {
 
 alls.dt <- params$alls[scen_id %in% c(1,scens)]
 
-milestones <- c(90,180,270,360)
 sizerefs <- c(M=6, K=3, 0)
 mk <- function(v) {
   i <- which.max(log10(v) >= sizerefs)
@@ -97,25 +96,25 @@ typicalfmt <- "%s~~(%s)"
 
 # Overview
 
-This report provides simulation-based estimates for COVID-19 epidemic scenarios in `r params$location`. In this model, we use a population of `r mk(sum(params$poppyra$pop))` in `r params$location`, with an average age of `r signif(params$poppyra[, sum(per_by_group[-.N]*seq(2,by=5,length.out = .N-1))+per_by_group[.N]*87.5], 3)`, based on [@wpp;@wpprepo].
+This report provides modelled projections of COVID-19 epidemics in `r params$location` under different intervention scenarios. We use a population of `r mk(sum(params$poppyra$pop))` in `r params$location`, with an average age of `r signif(params$poppyra[, sum(per_by_group[-.N]*seq(2,by=5,length.out = .N-1))+per_by_group[.N]*87.5], 3)`, based on [@wpp;@wpprepo].
 
 - We use a transmission model to project the COVID-19 epidemic in `r params$location`; it accounts for the local age structure, as well as uncertainty in transmission due to uncertainty in $R_0$ and randomness in the process.
-- We consider an unmitigated epidemic (*i.e.*, no intervention), and then interventions combining  social distancing and shielding interventions to decrease transmission.
-- We estimate predicted peak counts and timing for `r params$location` in new symptomatic cases and deaths (incidence), as well as peaks in daily hospital demand (prevalence). We also calculated totals for these values, and compute the impact of the interventions relative to an unmitigated epidemic.
-- The totals for hospital demand are calculated in terms of person-days, which can be translated into the total required expenditure on hospitalised care at different levels.
-- Populations are based on demographics of `r params$location` and estimated contact patterns, and assume a single national population
-- The transmission model is based on global outbreak data, which have primarily been observed in Asia, Europe, and North America.
+- We consider an unmitigated epidemic (*i.e.*, no intervention), and then interventions combining  social distancing and shielding to decrease transmission.
+- We estimate predicted peak counts and timing for `r params$location` in new symptomatic cases and deaths (incidence), as well as peaks in daily hospital demand (prevalence). We also calculate totals for these values, and compute the impact of the interventions relative to an unmitigated epidemic.
+- The totals for hospital demand are calculated in terms of person-days, which can be translated into the total required expenditure on hospital care.
+- Population and demography is specific to `r params$location` and we use estimated contact patterns, and assume a single national population.
+- Parameters of the model are from epidemics primarily from Asia, Europe, and North America.
 - Severity rates are rescaled from the global setting. We assume that due to comorbidities, lower-middle income populations will have less benefit from age and will in general have higher rates of symptomatic disease.
-- We start the epidemic simulation with 50 initial infections, proportionally distributed according to the age demography of `r params$location`. We refer to this day 0 as the *initial introduction*. This corresponds roughly to when there were roughly 50 active infections in `r params$location`; due to under-reporting and subclinical disease, this cannot be directly determined from reported cases.
+- We start the epidemic simulation with 50 initial infections, proportionally distributed according to the age demography of `r params$location`. We refer to this as the *initial introduction*, and it corresponds roughly to when there were roughly 50 active infections in `r params$location`. This has been estimated using a correction for under-reporting and cannot be directly determined from reported cases.
 - These reports will be updated as information changes, and if `r params$location`-specific information on hospitalisation rates become available.
-- All numerical results are reported to two significant figures only, and are reported as interquartile (IQR) and 95% intervals.
+- All numerical results are reported to two significant figures only, and are reported as interquartile range (IQR) and 95% intervals.
 - Detailed modelling methods are given at the end of the report.
 
 *Please direct correspondence regarding these reports to [carl.pearson@lshtm.ac.uk](mailto:carl.pearson@lshtm.ac.uk). Source available at [https://github.com/cmmid/covidm_reports](https://github.com/cmmid/covidm_reports).*
 
 # Unmitigated COVID-19 Epidemic Trajectory
 
-The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of COVID-19 cases and deaths in `r params$location`, and daily demand for hospital care. The ranges for peak timing and values for those outcomes are summarised in Table \@ref(tab:unpeakstable) (by 50% and 95% forecast intervals); Table \@ref(tab:uncumulative1) covers total counts by `r pasteAnd(milestones/30)` months from initial introduction in `r params$location`.
+The panels in Fig. \@ref(fig:tsunmit) show aggregate and by-age group outcomes for daily incidence of COVID-19 cases and deaths in `r params$location`, and daily demand for hospital care. The ranges for peak timing and values for those outcomes is summarised in Table \@ref(tab:unpeakstable) (by IQR (50% interval) and 95% intervals); Table \@ref(tab:uncumulative1) covers total counts by `r pasteAnd(milestones/30)` months from initial introduction in `r params$location`.
 
 ```{r}
 unmit.q <- meltquantiles(params$alls[scen_id == 1])
@@ -126,11 +125,11 @@ recomp <- function(cmp, lvls = levels(unmit.q$compartment)) factor(cmp, levels =
 
 reord <- function(dt) dt[, age := reage(age) ][, compartment := recomp(compartment) ]
 
-unmit.pks <- params$alls[scen_id == 1 & compartment != "E"][,{
+unmit.pks <- params$alls[scen_id == 1 & compartment != "R"][,{
   res <- apply(.SD, 2, max)
   names(res) <- colnames(.SD)
   as.list(res)
-}, by=.(compartment, age, scenario = int.factorize(scen_id))]
+}, by=.(compartment, age, scenario = int.factorize(scen_id)), .SDcols = -c("t")]
 reord(unmit.pks)
 
 quotepeaks <- unmit.pks[age == "all"]
@@ -179,7 +178,7 @@ tabltext <- function(filterdt) {
   sprintf(typicalfmt, rngprint(filterdt[,c(lo,hi)]), rngprint(filterdt[,c(lo.lo,hi.hi)]))
 }
 outcomesc <- params$alls[
-  scen_id == 1 & age == "all" & compartment != "E"
+  scen_id == 1 & age == "all" & compartment != "R"
 ][,{
   vs <- colSums(.SD)
   names(vs) <- colnames(.SD)
@@ -187,7 +186,7 @@ outcomesc <- params$alls[
   },by=compartment,.SDcols = -c("age", "t", "scen_id")
 ]
 outcomest <- params$alls[
-  scen_id == 1 & age == "all" & compartment != "E"
+  scen_id == 1 & age == "all" & compartment != "R"
 ][,{
   vs <- t[apply(.SD, 2, which.max)]
   names(vs) <- rev(colnames(.SD))
@@ -234,7 +233,9 @@ boldL(kable_styling(
 
 \blandscape
 
-```{r tsunmit, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Unmitigated epidemics in %s. Time series and peak sizes for new symptomatic cases and deaths, general ward hospital demand, critical care hospital demand, and total hospital demand (general ward plus critical care). Both summary and by age group results are provided; population and underlying age groups from demography of %s. The different line transparency denotes different simulation quantiles; the lightest lines correspond to the 95\\%% interval, then darker the IQR, then the solid line the median. Cases and deaths reflect new daily events (incidence), while hospital demand reflects the number in hospital on that day (prevalence).", params$location, params$location)}
+```{r tsunmit, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Unmitigated epidemics in %s. Time series and peak sizes for new symptomatic cases and deaths, general ward hospital demand, critical care hospital demand, and total hospital demand (general ward plus critical care). Total and age group results are provided; using population and underlying age groups from demography of %s. Line transparency denotes different simulation quantiles; the lightest lines correspond to the 95\\%% interval, then darker the IQR, then the solid line the median. Cases and deaths reflect new daily events (incidence), while hospital demand reflects the number in hospital on each day (prevalence).", params$location, params$location)}
+
+#' TODO big panel, all ages, cases + deaths; update dates
 
 age.annotate <- function(l) sprintf("%s\n%s",l,ifelse(l=="all","ages","years"))
 stagger <- function(l) {
@@ -261,7 +262,7 @@ sharedelements <- list(
   )
 )
 
-plot_grid(ggplotqs(unmit.q[compartment != "E"], aes(
+plot_grid(ggplotqs(unmit.q[compartment != "R"], aes(
   alpha = variable,
   color = "Unmitigated"
 )) +
@@ -299,7 +300,7 @@ int.peaks.all(unmit.pks, aes(x=age), range.scale = c(1, 1.5, 2)) + facet_grid(
 \elandscape
 
 ```{r unpeakstable}
-tabpeak <- alls.dt[scen_id == 1 & compartment != "E",{
+tabpeak <- alls.dt[scen_id == 1 & compartment != "R",{
   v.ll = max(lo.lo); t.ll = t[which.max(lo.lo)]
   v.lo = max(lo); t.lo = t[which.max(lo)]
   v.md = max(med); t.md = t[which.max(med)]
@@ -353,7 +354,7 @@ outcome_cumulative <- c(
     E="Infections"
   )
 
-unmitacc <- params$unmitigated[compartment != "E"][
+unmitacc <- params$unmitigated[compartment != "R"][
   order(t),.(t, value=cumsum(value)),by=.(run, age, compartment)
 ][t %in% milestones,{
   qs <- quantile(value, probs = refprobs)
@@ -384,36 +385,47 @@ landscape(mkkbl(
 
 # Intervention Scenarios
 
-The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The IQR and 95% intervals for peak timing and values for those outcomes are summarised in Table \@ref(tab:intpeakstable). Fig. \@ref(fig:cumtsint) shows the relative trajectories in total outcomes, Table \@ref(tab:intcumulative1) shows cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction. Note that these reduction may rise and decline with time: as Fig. \@ref(fig:cumtsint) shows, some interventions have large initial impact by delaying an epidemic, but ultimately many of the cases still happen.
+The panels in Fig. \@ref(fig:tsintervention) compare unmitigated epidemics with 5 different potential interventions in `r params$location`. The IQR and 95% intervals for peak timing and values for those outcomes is summarised in Table \@ref(tab:intpeakstable). Fig. \@ref(fig:cumtsint) shows the relative trajectories in total outcomes, with Table \@ref(tab:intcumulative1) covers cumulative reductions due to the interventions at `r pasteAnd(milestones/30)` months from initial introduction. Note that these reduction may rise and decline with time: as Fig. \@ref(fig:cumtsint) shows, some interventions have large initial impact by delaying an epidemic, but ultimately many of the cases still occur.
 
 - We assumed these interventions are applied at the country level.
 - General physical distancing was implemented as a reduction in contacts, and thus transmission, for all interactions outside the household. We assumed no change in transmission within the household.
-- Shielding was implemented by stratifying the population in one shielded and one unshielded compartment. Shielding applies to those aged 60+ years. We assume shielding of this population has a coverage fraction, and reduction fraction; we refer to shielding interventions by coverage / reduction, so "80/80 shielding" is 80% coverage of 80% contact reduction. We show results for 40/80 and 80/80 here. Other results available upon request. In `r params$location`, 80% coverage corresponds to `r mk(params$poppyra[age == "60+", sum(pop)*.8])` individuals  or `r mk(params$poppyra[age == "60+", round(unique(per_by_age)*.8*100)])`% of the population, with half of those values for 40% coverage.
+- Greenzone shielding (abbreviated "GZ") was implemented by stratifying the population in one shielded and one unshielded compartment. The GZ applies to those aged 60+ years. We assume shielding of this population has a coverage fraction, and reduction fraction; we refer to GZ interventions by coverage / reduction, so "80C-80R shielding" is 80% coverage with 80% contact reduction to the shielded group. Other results available upon request. In `r params$location`, 80% coverage corresponds to `r mk(params$poppyra[age == "60+", sum(pop)*.8])` individuals  or `r mk(params$poppyra[age == "60+", round(unique(per_by_age)*.8*100)])`% of the population, with half of those values for 40% coverage.
 - To be effective, shielding must be maintained until the epidemic is over and must ensure that there is not substantially increased mixing amongst the shielded population.
+- We consider several interventions combined with "basic Public Health & Social Measures (PHSM)". PHSM is a 20% reduction in general contacts outside the home and a 25% reduction in transmission from symptomatic individuals corresponding to symptomatic people being encouraged to self-isolate.
 
 The % net reduction to cases, deaths, and hospitalised person-days in these scenarios, one year after initial introduction in `r params$location` is summarised in Table \@ref(tab:intsumtabl):
 
-```{r intsumtabl}
-effref <- params$accs[compartment != "E"][metric == "effectiveness" & age == "all" & t == 360 & scen_id %in% scens]
+```{r intsumtabl, result="asis"}
+
+effref <- params$accs[compartment != "R"][metric == "effectiveness" & age == "all" & t == 360 & scen_id %in% setdiff(scens, 1)]
 effref[, scenario := int.factorize(scen_id)]
 reord(effref)
-#redref <- params$accs[compartment != "E"][metric == "reduction" & age == "all" & t == 360 & scen_id %in% scens]
+#redref <- params$accs[compartment != "R"][metric == "reduction" & age == "all" & t == 360 & scen_id %in% scens]
 #reord(redref)
 #redref[, longname := int.factorize(scen_id) ]
 efftext <- function(r) {
   v <- round(r*100)
   sprintf("%i-%i\\%% (%i-%i\\%%)",v[2],v[4],v[1],v[5])
 }
+lber <- function(sc) linebreak(gsub("%","\\%", sc, fixed = T))
+clber <- function(oc) linebreak(outcome_cumulative[as.character(oc)])
+
 efftab <- dcast(
   effref[,.(etext=efftext(c(lo.lo,lo,med,hi,hi.hi))),keyby=.(compartment, scenario)],
-  linebreak(outcome_cumulative[as.character(compartment)]) ~ linebreak(gsub("%","\\%",gsub(" &\n",",\n", scenario, fixed = T), fixed = T)), value.var = "etext"
+   lber(scenario) ~ clber(compartment), value.var = "etext"
 )
+# efftab2 <- dcast(
+#   effref[scen_id %in% scen_subset2,.(etext=efftext(c(lo.lo,lo,med,hi,hi.hi))),keyby=.(compartment, scenario)],
+#   linebreak(outcome_cumulative[as.character(compartment)]) ~ lber(scenario), value.var = "etext"
+# )
+#colnames(efftab1)[1] <- colnames(efftab2)[1] <- "Total"
 colnames(efftab)[1] <- "Total"
-setcolorder(efftab, c(1,2,4,3,5,6))
+setcolorder(efftab, c(1,2,3,5,4,6))
+
 boldL(kable_styling(
   kable(
-    efftab, booktabs = TRUE, caption = "Scenario Effectiveness Summary",
-    escape = FALSE, 
+    efftab[c(1, 2, 3, 6, 9, 10, 5, 4, 7, 8)], booktabs = TRUE, caption = "Scenario Effectiveness Summary. Effectiveness is the percent reduction in an outcome from the unmitigated scenario; these values are 1 year out from the introduction date.",
+    escape = FALSE
   )
   , latex_options = c("striped", "hold_position")
 ))
@@ -422,11 +434,11 @@ boldL(kable_styling(
 \blandscape
 
 ```{r tsintervention, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Epidemics in %s with interventions for all ages. Time series and peak counts for new symptomatic cases and deaths, general ward hospital demand, critical care hospital demand, and total hospital demand (general ward plus critical care). The different line transparency denotes different simulation quantiles; the lightest lines correspond to the 95\\%% interval, then darker the IQR, then the solid line the median. Cases and deaths reflect new daily events (incidence), while hospital demand reflects the number in hospital on that day (prevalence).", params$location)}
-pks <- alls.dt[age=="all" & compartment != "E",{
+pks <- alls.dt[age=="all" & compartment != "R",{
   res <- apply(.SD, 2, max)
   names(res) <- colnames(.SD)
   as.list(res)
-}, by=.(compartment, age, scenario = int.factorize(scen_id))]
+}, by=.(compartment, age, scenario = int.factorize(scen_id)), .SDcols = -c("t")]
 reord(pks)
 
 sharedelements <- list(
@@ -439,28 +451,71 @@ sharedelements <- list(
   )
 )
 
-int.qs <- meltquantiles(alls.dt[age=="all" & compartment != "E"])
+int.qs <- meltquantiles(alls.dt[age=="all" & compartment != "R"])
 int.qs[, scenario := int.factorize(scen_id) ]
 reord(int.qs)
 
+#' TODO make lockdowns grouped with distancing instead of GZ
+scen_subset1 <- setdiff(scens, 1)[c(1,2,8:10)]
+scen_subset2 <- setdiff(scens, c(1, scen_subset1))
+
+colscale <- function(name = NULL, guide = "none") scale_color_discrete(
+  name = name, guide = guide,
+  limits = levels(int.factorize(scens)), aesthetics = c("color","fill")
+)
+
 plot_grid(
-ggplotqs(int.qs, aes(
+ggplotqs(int.qs[scen_id %in% c(1, scen_subset1)], aes(
    color=scenario, group=variable, alpha=variable
 )) +
-  facet_grid(compartment ~ scenario, scale = "free_y", switch = "y", labeller = fct_labels(
-    #scen_id = { res <- levels(int.factorize(c(1, scens))); names(res) <- c(1, scens); res }
-  )) +
+  facet_grid(compartment ~ scenario, scale = "free_y", switch = "y", labeller = fct_labels()) +
   xscale() +
-  scale_color_discrete(guide = "none") +
+  colscale() +
   sharedelements +
   theme(
     strip.placement = "outside",
     axis.title.y = element_blank(),
     plot.margin = margin(l = 12)
   ),
-int.peaks.all(pks, range.scale = c(1, 1.5, 2)) + facet_grid(
+int.peaks.all(pks[scen_id %in% c(1, scen_subset1)], range.scale = c(1, 1.5, 2)) + facet_grid(
   compartment ~ "\nPeak Values", scales = "free_y", labeller = labeller(compartment = function(l) rep("",length(l)))
 ) + sharedelements +
+  colscale(guide = "legend") +
+  scale_x_discrete("\n", labels = function(bs) rep("", length(bs))) +
+  theme(
+      axis.title.x = element_text(),
+      axis.text.x = element_text(),
+      axis.title.y = element_blank(),
+      legend.key.size = unit(24, "pt"),
+      strip.text.y = element_blank(),
+      plot.margin = margin()
+    ),
+  axis = "l", align = "v", rel_widths = c(3, 2)
+)
+```
+
+\elandscape
+
+\blandscape
+
+```{r tsinterventioncont, fig.height=6, out.width="10in", fig.width=10}
+plot_grid(
+ggplotqs(int.qs[scen_id %in% c(1, scen_subset2)], aes(
+   color=scenario, group=variable, alpha=variable
+)) +
+  facet_grid(compartment ~ scenario, scale = "free_y", switch = "y", labeller = fct_labels()) +
+  xscale() +
+  colscale() +
+  sharedelements +
+  theme(
+    strip.placement = "outside",
+    axis.title.y = element_blank(),
+    plot.margin = margin(l = 12)
+  ),
+int.peaks.all(pks[scen_id %in% c(1, scen_subset2)], range.scale = c(1, 1.5, 2)) + facet_grid(
+  compartment ~ "\nPeak Values", scales = "free_y", labeller = labeller(compartment = function(l) rep("",length(l)))
+) + sharedelements +
+  colscale(guide = "legend") +
   scale_x_discrete("\n", labels = function(bs) rep("", length(bs))) +
   theme(
       axis.title.x = element_text(),
@@ -480,11 +535,11 @@ int.peaks.all(pks, range.scale = c(1, 1.5, 2)) + facet_grid(
 
 ```{r cumtsint, fig.height=6, out.width="10in", fig.width=10, fig.cap=sprintf("Trajectories for cumulative outcomes in %s. The ribbons correspond to the 95\\%% intervals (lightest) and IQR (darker), with solid lines for the median. Note that some interventions have large initial impact by delaying an epidemic, but ultimately many of the cases still happen; when comparing interventions to an unmitigated epidemic, this leads to large initial reduction in total cases, which later declines.", params$location)}
 
-accs.dt <- params$alls[compartment != "E" & age == "all" & scen_id %in% c(1, scens)]
+accs.dt <- params$alls[compartment != "R" & age == "all" & scen_id %in% c(1, scens)]
 
 cum.qs <- accs.dt[order(t),{
   .(t, lo.lo=cumsum(lo.lo), lo=cumsum(lo), med=cumsum(med), hi=cumsum(hi), hi.hi = cumsum(hi.hi))
-}, keyby=.(scenario = int.factorize(scen_id), compartment, age)]
+}, keyby=.(scenario = int.factorize(scen_id), scen_id, compartment, age)]
 
 reord(cum.qs)
 
@@ -492,7 +547,7 @@ pks <- cum.qs[t %in% milestones, {
   res <- apply(.SD, 2, max)
   names(res) <- colnames(.SD)
   as.list(res)
-}, by=.(compartment, age, scenario, t)]
+}, by=.(compartment, age, scenario, scen_id, t)]
 reord(pks)
 
 sharedelements <- list(
@@ -506,7 +561,7 @@ sharedelements <- list(
 range.scale = c(1, 1.5, 2)
 
 plot_grid(
-ggplot(cum.qs) + aes(
+ggplot(cum.qs[scen_id %in% c(1, scen_subset1)]) + aes(
   t, med,
   fill = scenario
 ) +
@@ -522,7 +577,7 @@ ggplot(cum.qs) + aes(
   ))) +
   coord_cartesian(ylim = c(0, NA), xlim = c(0, 360), expand = F) +
   xscale() +
-  scale_color_discrete(guide = "none", aesthetics = c("fill","color")) +
+  colscale() +
   scale_alpha_manual(values=c(r95=0.2,r50=0.2,med=1), guide = "none") +
   sharedelements +
   theme(
@@ -530,17 +585,17 @@ ggplot(cum.qs) + aes(
     axis.title.y = element_blank(),
     plot.margin = margin(l = 12)
   ),
-ggplot(pks) +
-    aes(as.numeric(scenario)+(t/30-7.5)/18, med, color=scenario) +
+ggplot(pks[scen_id %in% c(1, scen_subset1)][, scenx := as.numeric(factor(scen_id, c(1, scen_subset1), ordered = T))]) +
+    aes(scenx+(t/30-7.5)/18, med, color=scenario) +
     geom_linerange(aes(ymin=lo.lo, ymax=hi.hi, alpha="hi.hi"),  size = range.scale[1]) +
     geom_linerange(aes(ymin=lo, ymax=hi, alpha="hi"), size = range.scale[2]) +
     geom_point(aes(y=med, alpha="med"), size = range.scale[3]) +
-    scale_color_discrete(NULL, guide = "none") +
     coord_cartesian(ylim = c(0, NA), expand = F) + facet_grid(
   compartment ~ "Total Values at 3, 6, 9, and 12 Months", scales = "free_y", labeller = labeller(compartment = function(l) rep("",length(l)))
 ) + sharedelements +
+  colscale() +
   coord_cartesian(ylim = c(0, NA), expand = F, clip = "off") +
-  scale_x_continuous("", breaks = 1:c(length(scens)+1), labels = int.factorize(c(1,scens)) ) +
+  scale_x_continuous("", breaks = (0:length(scen_subset1))+1, labels = int.factorize(c(1, scen_subset1))) +
   scale_alpha_manual(values = c(0.2, 0.2, 1), guide = "none") +
   theme(
       axis.title.y = element_blank(),
@@ -554,8 +609,62 @@ ggplot(pks) +
 
 \elandscape
 
+\blandscape
+
+```{r cumtsintcont, fig.height=6, out.width="10in", fig.width=10}
+plot_grid(
+ggplot(cum.qs[scen_id %in% c(1, scen_subset2)]) + aes(
+  t, med,
+  fill = scenario
+) +
+  geom_ribbon(aes(ymin=lo.lo, ymax=hi.hi, alpha = "r95")) +
+  geom_ribbon(aes(ymin=lo, ymax=hi, alpha = "r50")) +
+  geom_line(aes(alpha = "med", color = scenario)) +
+  facet_grid(compartment ~ "Cumulative Total Count", scale = "free_y", switch = "y", labeller = fct_labels(compartment = c(
+    cases="Total Cases",
+    hosp_p="All Hospital\nPerson-Days",
+    nonicu_p="General Hospital\nPerson-Days",
+    icu_p="Critical Care\nPerson-Days",
+    death_o="Total Deaths"
+  ))) +
+  coord_cartesian(ylim = c(0, NA), xlim = c(0, 360), expand = F) +
+  xscale() +
+  colscale() +
+  scale_color_discrete(guide = "none", aesthetics = c("fill","color")) +
+  scale_alpha_manual(values=c(r95=0.2,r50=0.2,med=1), guide = "none") +
+  sharedelements +
+  theme(
+    strip.placement = "outside",
+    axis.title.y = element_blank(),
+    plot.margin = margin(l = 12)
+  ),
+ggplot(pks[scen_id %in% c(1, scen_subset2)][, scenx := as.numeric(factor(scen_id, c(1, scen_subset2), ordered = T))]) +
+    aes(scenx+(t/30-7.5)/18, med, color=scenario) +
+    geom_linerange(aes(ymin=lo.lo, ymax=hi.hi, alpha="hi.hi"),  size = range.scale[1]) +
+    geom_linerange(aes(ymin=lo, ymax=hi, alpha="hi"), size = range.scale[2]) +
+    geom_point(aes(y=med, alpha="med"), size = range.scale[3]) +
+    coord_cartesian(ylim = c(0, NA), expand = F) + facet_grid(
+  compartment ~ "Total Values at 3, 6, 9, and 12 Months", scales = "free_y", labeller = labeller(compartment = function(l) rep("",length(l)))
+) + sharedelements +
+  colscale() +
+  coord_cartesian(ylim = c(0, NA), expand = F, clip = "off") +
+  scale_x_continuous("", breaks = (0:length(scen_subset2))+1, labels = int.factorize(c(1, scen_subset2))) +
+  scale_alpha_manual(values = c(0.2, 0.2, 1), guide = "none") +
+  theme(
+      axis.title.y = element_blank(),
+      legend.key.size = unit(24, "pt"),
+      strip.text.y = element_blank(),
+      plot.margin = margin(r=unit(24,"pt"))
+    ),
+  axis = "l", align = "v", rel_widths = c(2, 3)
+)
+```
+
+
+\elandscape
+
 ```{r intpeakstable}
-tabpeak <- alls.dt[age=="all" & compartment != "E",{
+tabpeak <- alls.dt[age=="all" & compartment != "R",{
   v.ll = max(lo.lo); t.ll = t[which.max(lo.lo)]
   v.lo = max(lo); t.lo = t[which.max(lo)]
   v.md = max(med); t.md = t[which.max(med)]
@@ -570,7 +679,7 @@ tabpeak <- alls.dt[age=="all" & compartment != "E",{
 reord(tabpeak)
 
 inttab <- tabpeak[order(scenario, compartment)][,.(
-  Scenario=linebreak(gsub("%","\\%",gsub(" &\n",",\n", scenario, fixed = T), fixed = T)),
+  Scenario=lber(scenario),
   `All ages`=c(
     cases="Incident Cases",
     death_o="Incident Deaths",
@@ -582,11 +691,16 @@ inttab <- tabpeak[order(scenario, compartment)][,.(
   `Peak number IQR (95\\% interval)`=v
 )]
 
-mkkbl(inttab, caption=sprintf("Peak timing and values for main outcomes in %s, by intervention scenario. Timing is from the date of ongoing community spread with 50 infections.", params$location), b = FALSE, escape = FALSE)
+offsetter <- function(is, stride = 5) {
+  starts <- (is-1)*stride + 1
+  return(rep(starts, each = stride) + (1:stride) - 1)
+}
+
+mkkbl(inttab[offsetter(c(1, 2, 3, 9:11, 8, 4, 5:7))], caption=sprintf("Peak timing and values for main outcomes in %s, by intervention scenario. Timing is from the date of ongoing community spread with 50 infections.", params$location), b = FALSE, escape = FALSE)
 ```
 
 ```{r intcumulative1}
-intacc <- params$accs[compartment != "E"][metric == "reduction" & age == "all" & scen_id %in% scens][,{
+intacc <- params$accs[compartment != "R"][metric == "reduction" & age == "all" & scen_id %in% scens][,{
   iqr <- rngprint(c(lo, hi))
   i95 <- rngprint(c(lo.lo,hi.hi))
   sprintf(typicalfmt, iqr, i95)
@@ -596,7 +710,7 @@ reord(intacc)
 
 intacctable1 <- dcast(intacc, scenario + compartment ~ t, value.var="V1")[order(scenario, compartment)][
 ,.(
-  Scenario=linebreak(gsub("%","\\%",gsub(" &\n",",\n",scenario, fixed = T), fixed = T)),
+  Scenario=lber(scenario),
   Outcome=gsub("\\n"," ",outcome_cumulative)[as.character(compartment)],
   `3 months`=`90`,
   `6 months`=`180`,
@@ -605,13 +719,15 @@ intacctable1 <- dcast(intacc, scenario + compartment ~ t, value.var="V1")[order(
 )
 ]
 
-landscape(mkkbl(
-  intacctable1,
+kable_styling(mkkbl(
+  intacctable1[offsetter(c(2, 3, 9:11, 8, 4, 5:7)-1)],
   caption=sprintf("Net reductions for main outcomes in %s by intervention scenario; reductions are evaluated at %s months. Note that net reductions may decline with time; as shown in Fig. 3, some interventions have a large initial impact, but ultimately still allow many cases.", params$location, pasteAnd(milestones/30)),
   escape = FALSE,
   b = FALSE
-))
+), latex_options = c("scale_down"))
 ```
+
+\clearpage
 
 # Methods, data and assumptions
 

@@ -3,9 +3,10 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "~/Dropbox/covidm_reports/hpc_inputs/alt_scenarios.rds"
+  "utils/report_ref.rds", "~/Dropbox/covidm_reports/hpc_inputs/alt_scenarios.rds"
 ) else commandArgs(trailingOnly = TRUE)
 
+reffile <- .args[1]
 outfile <- tail(.args, 1)
 
 #' want:
@@ -39,11 +40,20 @@ ref <- function(
 #' TODO: ignore? going to just iterate over rows where scen_id = 1, and if it's empty, nothing to do
 unmitigated <- ref()[, scen_id := 1 ]
 
+reportref <- data.table(scen_id=integer(), label=character())
+append_scenarios <- function(dt, new_scen_ids, new_labels) {
+  newdt <- data.table(scen_id = new_scen_ids, label = new_labels)
+  rbind(dt, newdt)
+}
+
 scen_counter <- 1
 tagscenario <- function(dt, sc) { 
   dt[, scen_id := (1:.N) + sc ]
   return(dt[.N, scen_id])
 }
+
+# cat(sprintf("unmitigated: %i", 1))
+reportref <- append_scenarios(reportref, 1L, "Unmitigated")
 
 #' all remaining scenarios consider some level of self-isolation with symptoms
 #' and potentially different school effects
@@ -67,8 +77,16 @@ soc_dist_only$dist <- NULL
 
 scen_counter <- tagscenario(soc_dist_only, scen_counter)
 
+# cat(sprintf("generic 20%% distancing: %i", soc_dist_only[self_iso == 0.25 & school != 1.0 & other == 0.2, scen_id]))
+# cat(sprintf("generic 60%% distancing: %i", soc_dist_only[self_iso == 0.25 & school != 1.0 & other == 0.6, scen_id]))
+reportref <- append_scenarios(
+  reportref,
+  soc_dist_only[self_iso == 0.25 & school != 1.0 & other %in% c(0.2, 0.6), scen_id],
+  sprintf("%i%% distancing",round(c(0.2,0.6)*100))
+)
+
 #' reference for elder shielding
-sixtyplus <- 13:18
+sixtyplus <- 13
 
 low_soc_all <- ref(
   self_iso = self_iso_lvls[1],
@@ -95,7 +113,7 @@ combo_int <- function(custom, generic = low_soc_all) {
 
 #'  - continuous low level social distancing (20%) + 60+ (20-40-60 home reduction; 60-80-100 work/other)
 elder_shielding <- ref(
-  age_split = 13,
+  age_split = sixtyplus,
   school = schoolsonoff["off"],
   dist = (1:3)/5, # note: this is target *additional* reduction, which will be applied atop the generic 20% reduction
   start_day = NA,
@@ -108,6 +126,9 @@ elder_shielding <- ref(
 )]
 elder_shielding$dist <- NULL
 scen_counter <- tagscenario(elder_shielding, scen_counter)
+
+# cat(sprintf("40%% elder sheilding at home + low level all other measures: %i", elder_shielding[home == 0.4, scen_id]))
+reportref <- append_scenarios(reportref, elder_shielding[home == 0.4, scen_id], sprintf("%i%% in-home\nelder shielding", round(0.4*100)))
 
 elder_shielding <- combo_int(
   elder_shielding,
@@ -126,6 +147,20 @@ sequester <- ref(
 )
 # don't need to define age, as that's set by sequester population
 scen_counter <- tagscenario(sequester, scen_counter)
+
+# cat(sprintf("40C-80R greenzone + low level all other measures: %i", sequester[travel == 0.8 & coverage == 0.4, scen_id]))
+# cat(sprintf("60C-60R greenzone + low level all other measures: %i", sequester[travel == 0.6 & coverage == 0.6, scen_id]))
+# cat(sprintf("80C-80R greenzone + low level all other measures: %i", sequester[travel == 0.8 & coverage == 0.8, scen_id]))
+
+reportref <- append_scenarios(
+  reportref,
+  c(
+    sequester[travel == 0.8 & coverage == 0.4, scen_id],
+    sequester[travel == 0.6 & coverage == 0.6, scen_id],
+    sequester[travel == 0.8 & coverage == 0.8, scen_id]
+  ),
+  sprintf("%iC-%iR GZ,\nbasic PHSM", c(0.4,0.6,0.8)*100, c(0.8,0.6,0.8)*100)
+)
 
 sequester <- combo_int(
   sequester,
@@ -146,6 +181,13 @@ alternating <- ref(
 alternating$dist <- NULL
 scen_counter <- tagscenario(alternating, scen_counter)
 
+# cat("no school + intermittent 40%% lockdown: %i", alternating[work == 0.5, scen_id])
+reportref <- append_scenarios(
+  reportref,
+  alternating[between(work-0.5,-1e-6,1e-6), scen_id], # not == 0.6, due to combination
+  sprintf("basic PHSM,\nschool closure,\nintermittent\n+%i%% lockdown", 0.4*100)
+)
+
 alternating <- combo_int(
   alternating,
   low_soc_all
@@ -157,14 +199,26 @@ alternating[trigger_type == "incidence", c("start_day","trigger_type","trigger_v
 #'  - high lockdown relaxing to generic low social distancing / self-iso in 30-60-90 days from start
 lockdown <- ref(
   school = schoolsonoff["off"],
-  home = adjust_reduction(.7),
-  other = adjust_reduction(.7),
+  #' TODO fix this
+  dist = c(.3,.5,.7),
   start_day = NA,
   end_day = c(30, 60, 90),
   trigger_type = "day",
   trigger_value = 0
-)
+)[, c("work", "other") := .(
+  adjust_reduction(dist),
+  adjust_reduction(dist)
+)]
+lockdown$dist <- NULL
+
 scen_counter <- tagscenario(lockdown, scen_counter)
+
+# cat("lockdown, 30-60-90: ", lockdown[order(end_day), scen_id])
+reportref <- append_scenarios(
+  reportref,
+  lockdown[work == 0.375][order(end_day), scen_id],
+  sprintf("%i day 50%% lockdown,\nthen basic PHSM", c(30,60,90))
+)
 
 lockdown <- combo_int(
   lockdown,
@@ -172,7 +226,6 @@ lockdown <- combo_int(
 )
 #' assume these in place from start of lockdown, rather than incidence
 lockdown[trigger_type == "incidence", c("trigger_type","trigger_value") := .("day", 0)]
-
 
 all_scenarios <- setkey(rbind(
   soc_dist_only,
@@ -182,4 +235,5 @@ all_scenarios <- setkey(rbind(
   lockdown
 ), scen_id)
 
+saveRDS(reportref, reffile)
 saveRDS(all_scenarios, outfile)

@@ -2,11 +2,19 @@
 DBDIR ?= ~/Dropbox
 SYDIR ?= ~/Sync
 
+INDIR := ${DBDIR}/covidm_reports
 OUTDIR := ${DBDIR}/covidm_hpc_output
 REPDIR := ${DBDIR}/Covid_LMIC/Country_Modelling_Reports
 SREPDIR := ${SYDIR}/COVID_projections_reports
 
 DATE ?= $(shell date +%Y_%m_%d)
+
+R = Rscript $^ $@
+
+sharedconst.rda: sharedconst.R ${INDIR}/hpc_inputs/report_ref.rds
+	${R}
+
+report_ref.rds:
 
 version: ${OUTDIR}/${DATE}_archive.tar.gz ${REPDIR}/${DATE}_archive.tar.gz
 

@@ -230,7 +230,7 @@ cm_calc_R0_extended <- function(
   return(max(Re(eigen(k)$values)))
 }
 
-allbind <- data.table()
+allbind <- list()
 
 for(i in 1:nrow(run_options)){
 
@@ -356,7 +356,7 @@ for(i in 1:nrow(run_options)){
 
   result <- reduce_ages(
     sim[
-      compartment %in% c("cases","death_o","icu_p","nonicu_p","infections")
+      compartment %in% c("cases","death_o","icu_p","nonicu_p","R")
     ]
   )[,
     .(value = sum(value)),
@@ -366,16 +366,17 @@ for(i in 1:nrow(run_options)){
   rm(params)
   rm(sim)
   
-  allbind <- rbind(allbind, result)
-  gc()
+  allbind[[i]] <- result
 }
+
+alldt <- setkeyv(rbindlist(allbind), key(allbind[[1]]))
 
 if (scenario_index == 1){
   tpop <- sum(params_set[[1]]$pop[[1]]$size)
-  inc <- allbind[compartment == "cases",.(
+  inc <- alldt[compartment == "cases",.(
     incidence = sum(value)/tpop
   ), keyby=.(run, t, compartment)]
   qsave(inc, unmitigatedname)
 }
 
-qsave(allbind, tarfile)
+qsave(alldt, tarfile)
