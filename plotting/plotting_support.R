@@ -7,52 +7,27 @@ suppressPackageStartupMessages({
 .args <- if (interactive()) c(
   "plotfuns.rda"
 ) else commandArgs(trailingOnly = TRUE)
-
-refprobs <- c(lo.lo=0.025, lo=0.25, med=0.5, hi=0.75, hi.hi=0.975)
-
-expander <- function(
-  dt, runs = 1:max(dt$run),
-  ages = factor(levels(dt$age), ordered = TRUE),
-  ts = 1:365,
-  ...
-) data.table(expand.grid(
-  run = runs,
-  age = ages,
-  ...,
-  t = ts
-))
-
-inc.expander <- function(
-  dt, compartment=c("cases","death_o", "E"),
-  ...
-) expander(dt, compartment=compartment, ...)
-
-
-prev.expander <- function(
-  dt, compartment=c("nonicu_p","icu_p"),
-  ...
-) expander(dt, compartment=compartment, ...)
   
-unmitigated.addall <- function(dt) {
-  tmp <- dt[
-    expander(dt, compartment = unique(dt$compartment)),
-    on=setdiff(colnames(dt),"value")
-  ][, value := ifelse(is.na(value), 0L, value) ]
-  tmp <- rbind(tmp[
-    compartment %in% c("icu_p","nonicu_p"),
-    .(value = sum(value), compartment ="hosp_p"),
-    by=setdiff(key(dt),"compartment")
-  ], tmp)
-  return(setkeyv(rbind(
-    tmp,
-    tmp[, .(value = sum(value), age ="all"), by=setdiff(key(dt),"age")]
-  ), key(dt)))
-}
-
-unmitigated.peaks <- function(dt) dt[,
-  .SD[which.max(value)]
-  ,keyby=setdiff(key(dt), "t")
-]
+# unmitigated.addall <- function(dt) {
+#   tmp <- dt[
+#     expander(dt, compartment = unique(dt$compartment)),
+#     on=setdiff(colnames(dt),"value")
+#   ][, value := ifelse(is.na(value), 0L, value) ]
+#   tmp <- rbind(tmp[
+#     compartment %in% c("icu_p","nonicu_p"),
+#     .(value = sum(value), compartment ="hosp_p"),
+#     by=setdiff(key(dt),"compartment")
+#   ], tmp)
+#   return(setkeyv(rbind(
+#     tmp,
+#     tmp[, .(value = sum(value), age ="all"), by=setdiff(key(dt),"age")]
+#   ), key(dt)))
+# }
+# 
+# unmitigated.peaks <- function(dt) dt[,
+#   .SD[which.max(value)]
+#   ,keyby=setdiff(key(dt), "t")
+# ]
 
 ggplotruns <- function(
   dt,
@@ -73,12 +48,12 @@ ggplotqs <- function(
   gm(...)
 
 
-meltquantiles <- function(dt, probs = refprobs) {
-  ky <- setdiff(names(dt), names(probs))
-  setkeyv(melt(
-    dt, measure.vars = names(probs)
-  ), c(ky, "variable"))
-}
+# meltquantiles <- function(dt, probs = refprobs) {
+#   ky <- setdiff(names(dt), names(probs))
+#   setkeyv(melt(
+#     dt, measure.vars = names(probs)
+#   ), c(ky, "variable"))
+# }
 
 scale_x_t <- function(
   name = "Days since initial infection seeding",
@@ -102,18 +77,18 @@ scale_y_hosp <- function(
   ...
 ) scale_y_continuous(name, ...)
 
-peak_target_filter <- function(
-  dt,
-  ps = c(lo.lo=0.025, lo=0.25, med=0.5, hi=0.75, hi.hi=0.975)
-) {
-  unmitigated.peaks(dt)[,{
-    pqs <- quantile(value, ps)
-    names(pqs) <- sprintf("p.%s",names(ps))
-    tqs <- quantile(t, ps)
-    names(tqs) <- sprintf("t.%s",names(ps))
-    as.list(c(pqs,tqs))
-  }, keyby=setdiff(key(dt),c("t","run"))]
-}
+# peak_target_filter <- function(
+#   dt,
+#   ps = c(lo.lo=0.025, lo=0.25, med=0.5, hi=0.75, hi.hi=0.975)
+# ) {
+#   unmitigated.peaks(dt)[,{
+#     pqs <- quantile(value, ps)
+#     names(pqs) <- sprintf("p.%s",names(ps))
+#     tqs <- quantile(t, ps)
+#     names(tqs) <- sprintf("t.%s",names(ps))
+#     as.list(c(pqs,tqs))
+#   }, keyby=setdiff(key(dt),c("t","run"))]
+# }
 
 geom_target <- function(
   aes.ref,
@@ -184,6 +159,17 @@ stagger <- function(l) {
     sprintf("\n%s", l[seq(2, length(l), by=2)])
   )
   l
+}
+
+int.peaks.all <- function(dt, override.aes = aes(), range.scale = c(1,2,3)) {
+  ggplot(dt) +
+    aes(scenario, med, color=scenario) + override.aes +
+    geom_linerange(aes(ymin=lo.lo, ymax=hi.hi, alpha="hi.hi"), position = position_dodge(width=0.5), size = range.scale[1]) +
+    geom_linerange(aes(ymin=lo, ymax=hi, alpha="hi"), position = position_dodge(width=0.5), size = range.scale[2]) +
+    geom_point(aes(y=med, alpha="med"), position = position_dodge(width=0.5), size = range.scale[3]) +
+    scale_color_discrete(NULL) +
+    scale_y_continuous("Peak Values") +
+    coord_cartesian(ylim = c(0, NA), expand = F)
 }
 
 save(list = ls(), file = tail(.args, 1))
