@@ -1,13 +1,9 @@
 define_fill_continuous_sequential <- function(data, attribute, palette){
-  #' define_fill_continuous_sequential
-  #' 
-  #' @description Define the breaks, limits, and labels of a continuous fill scale on an entire dataset
-  #' 
-  #' @param data, data.frame, dataset to define scale attributes
-  #' @param attribute, character, column to be symbolised by the colour scale
-  #' @param palette, character, palette from colorspace::hcl_palettes
-  #' 
-  #' @details Useful for sharing a predefined colour scale between plots. 
+  #Define the breaks, limits, and labels of a continuous fill scale on an entire dataset
+  #data - data.frame, dataset to define scale attributes
+  #attribute - character, column to be symbolised by the colour scale
+  #palette - character, palette from colorspace::hcl_palettes
+  #Useful for sharing a predefined colour scale between plots. 
   
   attr_max <- data %>% pull(!!dplyr::enquo(attribute)) %>% max()
   attr_min <- data %>% pull(!!dplyr::enquo(attribute)) %>% min()

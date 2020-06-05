@@ -1,14 +1,10 @@
 source('mapping/define_fill_continuous_sequential.R', local = T)
 
 scale_fill_attribute <- function(data, attribute){
-  #' scale_fill_attribute
-  #' 
-  #' @description Handle picking predefined colour scales for a given attribute.
-  #' 
-  #' @param data, data.frame, dataset to define scale attributes
-  #' @param attribute, character, column to be symbolised by the colour scale
-  #' 
-  #' @details To add a new palette mapping, add a named item to palette_reference.
+  #Handle picking predefined colour scales for a given attribute.
+  #data - data.frame, dataset to define scale attributes
+  #attribute - character, column to be symbolised by the colour scale
+  #To add a new palette mapping, add a named item to palette_reference.
 
   palette_reference <- list()
   palette_reference[['dummy']] = 'Mint'
