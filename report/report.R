@@ -5,13 +5,13 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  sprintf("simulate/CPV/%s.qs",c("001","alls","accs","peak")),
-  "report/template.Rmd",
+  sprintf("simulate/IDP/%s.qs",c("001","alls","accs","peak")),
+  "report/template-rev.Rmd",
   sprintf("utils/%s.rda", c("sharedconst")),
   sprintf("plotting/%s.rda", c("plotfuns")),
   "~/Dropbox/covidm_reports/hpc_inputs",
   "~/Dropbox/covidm_reports/generation/data_contacts_missing.csv",
-  "report/CPV/report.pdf"
+  "report/IDP/report.pdf"
 ) else commandArgs(trailingOnly = TRUE)
 #' @example 
 #' .args <- gsub("CPV","IDP",.args)
@@ -54,7 +54,7 @@ if (dir.exists(detailinputdir)) {
   }
 }
 
-unmitigated <- reinflate(qread(simfns[1]), ts = 0:(2*365))
+unmitigated <- full.reinflate(qread(simfns[1]))
 # unmitigated[, date := t + timing$day0date ]
 all.quan <- qread(simfns[2])
 accs.int <- qread(simfns[3])

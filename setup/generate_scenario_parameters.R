@@ -3,11 +3,11 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "utils/report_ref.rds", "~/Dropbox/covidm_reports/hpc_inputs/alt_scenarios.rds"
+  "~/Dropbox/covidm_reports/hpc_inputs/alt_scenarios.rds"
 ) else commandArgs(trailingOnly = TRUE)
 
-reffile <- .args[1]
 outfile <- tail(.args, 1)
+reffile <- gsub("/(\\w+)\\.rds", "/report_ref.rds", outfile)
 
 #' want:
 #'  - unmitigated

@@ -59,5 +59,6 @@ ${OUTDIR}/%/timing.rds: create_timing_ref.R ${OUTDIR}/../generation/data_contact
 	Rscript $^ $* $@
 
 ${OUTDIR}/alt_scenarios.rds: generate_scenario_parameters.R
-	Rscript $^ ../utils/report_ref.rds $@
+	Rscript $^ $@
 
+${OUTDIR}/report_ref.rds: ${OUTDIR}/alt_scenarios.rds

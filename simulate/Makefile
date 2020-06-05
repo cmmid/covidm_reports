@@ -25,7 +25,7 @@ SIMRUNS ?= 2
 
 # if asking local examples; uses % length to differentiate between local
 # and HPC runs
-%/peak.qs: digest.R %/001.qs ../utils/sharedconst.rda
+%/peak.qs: digest.R ${HPCDIR}/%/001.qs ../utils/sharedconst.rda
 	Rscript $^ $@
 	
 %/accs.qs %/alls.qs: %/peak.qs

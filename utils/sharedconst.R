@@ -7,6 +7,9 @@ suppressPackageStartupMessages({
 ) else commandArgs(trailingOnly = TRUE)
 
 refprobs <- c(lo.lo=0.025, lo=0.25, med=0.5, hi=0.75, hi.hi=0.975)
+age.order <- c("all","<14","15-29","30-44","45-49","60+")
+age.annotate <- function(l, fmt="%s\n%s") sprintf(fmt, l, ifelse(l=="all","ages","years"))
+
 #' TODO
 #'  - define milestones here?
 #'  - define target compartments here?
@@ -66,22 +69,15 @@ aggregate.hosp <- function(dt, ky = key(dt), agg.name = "hosp_p", hosp.compartme
 aggregate.both <- function(dt) aggregate.hosp(aggregate.age(dt))
 
 expander <- function(
-  dt, runs = 1:max(dt$run),
-  ages = factor(levels(dt$age), ordered = TRUE),
-  ts = 0:max(dt$t),
+  dt, run = 1:max(dt$run),
+  age = factor(unique(c("all", levels(dt$age))), unique(c("all", levels(dt$age))), ordered = TRUE),
+  t = 0:max(dt$t),
+  compartment = unique(dt$compartment),
   ...
-) data.grid(
-  run = runs,
-  age = ages,
-  ...,
-  t = ts
-)
-
-quantile.dt <- function(dt, ps = refprobs) dt[,{
-  qs <- quantile(value, probs = ps)
-  names(qs) <- names(ps)
-  as.list(qs)
-}, by=setdiff(colnames(dt), c("run", "value"))]
+) {
+  rm(dt)
+  do.call(data.grid,c(as.list(environment()), list(...)))
+}
 
 reinflate <- function(dt, exp, roll = FALSE, na.val = 0L) return(
   dt[
@@ -91,6 +87,19 @@ reinflate <- function(dt, exp, roll = FALSE, na.val = 0L) return(
   ]
 )
 
+full.reinflate <- function(dt, exp.with = expander(dt)) {
+  setkeyv(rbind(
+    reinflate(dt[compartment != "R"], exp.with[compartment != "R"]),
+    reinflate(dt[compartment == "R"], exp.with[compartment == "R"])
+  ), key(dt))
+}
+
+quantile.dt <- function(dt, ps = refprobs) dt[,{
+  qs <- quantile(value, probs = ps)
+  names(qs) <- names(ps)
+  as.list(qs)
+}, by=setdiff(colnames(dt), c("run", "value"))]
+
 meltquantiles <- function(dt, probs = refprobs) {
   ky <- setdiff(names(dt), names(probs))
   setkeyv(melt(
@@ -98,9 +107,11 @@ meltquantiles <- function(dt, probs = refprobs) {
   ), c(ky, "variable"))
 }
 
+
+
 .allscens <- readRDS(.args[1])
 scens <- .allscens$scen_id
-int.factorize <- with(.allscens, function(s) factor(s, scen_id, label, ordered = TRUE))
+int.factorize <- with(.allscens[c(1:3,9:11,8,4:7)], function(s) factor(s, scen_id, label, ordered = TRUE))
 rm(.allscens)
 
 save(list = ls(), file = tail(.args, 1))

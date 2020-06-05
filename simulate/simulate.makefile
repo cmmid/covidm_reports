@@ -9,7 +9,7 @@ simulate/LMIC%.txt:
 SIMRUNS ?= 10
 
 %.qs: FORCE
-	cd simulate && make $@
+	cd simulate && $(MAKE) $@
 
 FORCE:
 
