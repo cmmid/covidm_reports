@@ -17,7 +17,7 @@ ${HPCDIR}/%/peak.qs: digest.R ${HPCDIR}/%/001.qs ../utils/sharedconst.rda
 
 ${HPCDIR}/%/accs.qs ${HPCDIR}/%/alls.qs: ${HPCDIR}/%/peak.qs
 
-${HPCDIR}/%/peak_low.qs: digest.R ${HPCDIR}/%/001_low.qs ../utils/sharedconst.rda
+${HPCDIR}/%/peak_low.qs: digest_low.R ${HPCDIR}/%/001_low.qs ../utils/sharedconst.rda
 	Rscript $^ $@
 
 ${HPCDIR}/%/accs_low.qs ${HPCDIR}/%/alls_low.qs: ${HPCDIR}/%/peak_low.qs
