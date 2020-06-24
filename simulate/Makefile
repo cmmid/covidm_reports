@@ -22,14 +22,13 @@ ${HPCDIR}/%/peak_low.qs: digest.R ${HPCDIR}/%/001_low.qs ../utils/sharedconst.rd
 
 ${HPCDIR}/%/accs_low.qs ${HPCDIR}/%/alls_low.qs: ${HPCDIR}/%/peak_low.qs
 
-${HPCDIR}/%.qs: run_scenarios.R
-	mkdir -p $(@D)
-	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
-
 ${HPCDIR}/%_low.qs: run_scenarios_low.R
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
+${HPCDIR}/%.qs: run_scenarios.R
+	mkdir -p $(@D)
+	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
 SIMRUNS ?= 2
 

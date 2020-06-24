@@ -6,7 +6,7 @@ suppressPackageStartupMessages({
 .args <- if (interactive()) c(
   "../covidm", "ZWE", "001", 
   sprintf("~/Dropbox/covidm_reports/hpc_inputs"),
-  "simulate/ZWE/001.qs"
+  "simulate/ZWE/001_low.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
 # load covidm
@@ -22,11 +22,11 @@ suppressPackageStartupMessages({
 
 # identify country / scenario
 country <- .args[2]
-scenario_index <- as.integer(.args[3])
+scenario_index <- as.integer(gsub("_low","",.args[3]))
 inputpth <- path.expand(.args[4])
 detailinputs <- sprintf("%s/%s", inputpth, country)
 tarfile <- tail(.args, 1)
-unmitigatedname <- gsub("\\d+\\.qs$","unmit_timings.qs", tarfile)
+unmitigatedname <- gsub("\\d+_low\\.qs$","unmit_timings.qs", tarfile)
 
 .inputfns <- list.files(inputpth, "\\.(rds|qs)", full.names = TRUE, include.dirs = F)
 
