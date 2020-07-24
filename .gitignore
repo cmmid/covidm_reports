@@ -9,3 +9,10 @@
 *.csv
 *.png
 *.jpg
+*.qs
+*.rds
+*.aux
+*.log
+*.out
+
+.cache/*
