@@ -4,9 +4,9 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "../covidm", "ZWE", "001", 
-  sprintf("~/Dropbox/covidm_reports/hpc_inputs"),
-  "simulate/ZWE/001.qs"
+  "../covidm", "2428", "001", 
+  sprintf("~/Dropbox/covidm_reports/hpc_detailed"),
+  "simulate/detail/001.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
 # load covidm
@@ -14,7 +14,7 @@ cm_path = .args[1]
 cm_force_rebuild = F;
 cm_build_verbose = F;
 cm_force_shared = T
-cm_version = 1
+cm_version = 2
 
 suppressPackageStartupMessages({
   source(paste0(cm_path, "/R/covidm.R"))
@@ -101,17 +101,6 @@ yref <- unname(as.matrix(yu[, .SD, .SDcols = grep("y_",colnames(yu))]))
 uref <- unname(as.matrix(yu[, .SD, .SDcols = grep("u_",colnames(yu))]))
 
 has_age_split <- iv_data[, any(!is.na(age_split))]
-
-reduce_ages <- function (dt) {
-  fctr <- function(i, lvls = c("<14", "15-29", "30-44","45-59", "60+")) factor(
-    lvls[i], levels = lvls, ordered = T
-  )
-  dt[between(as.integer(group), 1, 3), age := fctr(1) ]
-  dt[between(as.integer(group), 4, 6), age := fctr(2) ]
-  dt[between(as.integer(group), 7, 9), age := fctr(3) ]
-  dt[between(as.integer(group), 10, 12), age := fctr(4) ]
-  dt[as.integer(group) >= 13, age := fctr(5) ]
-}
 
 cm_calc_R0_extended <- function(
   params
@@ -354,13 +343,11 @@ for(i in 1:nrow(run_options)){
     model_seed = run_options[i, model_seed]
   )$dynamics
 
-  result <- reduce_ages(
-    sim[
+  result <- sim[
       compartment %in% c("cases","death_o","icu_p","nonicu_p","R")
-    ]
-  )[,
+    ][,
     .(value = sum(value)),
-    keyby = .(run, t, age, compartment)
+    keyby = .(run, t, group, compartment)
   ][value != 0][, run := i ]
   
   rm(params)
