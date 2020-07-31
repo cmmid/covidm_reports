@@ -350,6 +350,8 @@ for(i in 1:nrow(run_options)){
     keyby = .(run, t, group, compartment)
   ][value != 0][, run := i ]
   
+  setnames(result, "group", "age")
+  
   rm(params)
   rm(sim)
   
