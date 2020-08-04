@@ -10,7 +10,7 @@ outfile <- tail(.args, 1)
 reffile <- gsub("/(\\w+)\\.rds", "/report_ref.rds", outfile)
 
 # say that 11 March was the 50 active infections date
-mar23 <- as.integer(as.Date("2020-03-23") - as.Date("2020-03-11"))
+mar23 <- as.integer(as.Date("2020-03-23") - as.Date("2020-03-01"))
 
 dg <- function(...) data.table(expand.grid(..., stringsAsFactors = FALSE))
 

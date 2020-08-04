@@ -24,7 +24,7 @@ outfilefmt = file.path(tail(.args, 1),"%s","params_set.rds")
 cm_force_rebuild = F;
 cm_build_verbose = F;
 cm_force_shared = T;
-cm_version = 2;
+cm_version = 1;
 
 suppressPackageStartupMessages({
   source(file.path(cm_path, "R", "covidm.R"))
@@ -133,7 +133,7 @@ burden_processes = list(
   )
 )
 
-popnorm <- function(x, seed_cases = 50){
+popnorm <- function(x, seed_cases = 100){
   #no contact matrix - will be overwritten by empirical ones
   x$matrices$home <- x$matrices$work <- x$matrices$school <- x$matrices$other <- x$matrices$other*0
   
@@ -159,7 +159,9 @@ for (admin_code in reference[, key]) {
   
   params1 <- cm_parameters_SEI3R(
     country, matref,
-    deterministic=FALSE, date_end = 365*2
+    deterministic=FALSE,
+    date_start = "2020-03-01",
+    date_end = "2022-03-01"
   )
   
   extractpop <- melt(reference[

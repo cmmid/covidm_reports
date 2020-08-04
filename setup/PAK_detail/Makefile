@@ -27,6 +27,7 @@ ${DETDIR}/contact_matrices.rds: ${OUTDIR}/PAK/contact_matrices.rds
 #	mkdir -p $(@D)
 #	Rscript $^ ${COVIDMPATH} $* $@
 
+# TODO: update to reflect day0date == 2020-03-01, int0day == 2020-03-23
 ${DETDIR}/timing.rds: ${OUTDIR}/PAK/timing.rds
 	cp $< $@
 

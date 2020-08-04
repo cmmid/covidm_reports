@@ -38,10 +38,10 @@ ref <- function(
 ) do.call(dg, c(as.list(environment()), list(...)))
 
 #' TODO: ignore? going to just iterate over rows where scen_id = 1, and if it's empty, nothing to do
-unmitigated <- ref()[, scen_id := 1 ]
+unmitigated <- ref(scen_type = "unmitigated")[, scen_id := 1 ]
 
 reportref <- data.table(scen_id=integer(), label=character())
-append_scenarios <- function(dt, new_scen_ids, new_labels) {
+append_scenarios <- function(dt, new_scen_ids, new_labels, scen_type) {
   newdt <- data.table(scen_id = new_scen_ids, label = new_labels)
   rbind(dt, newdt)
 }
@@ -70,7 +70,8 @@ soc_dist_only <- ref(
   dist = soc_dist_lvls, # work and other are matched, so will substitute after
   start_day = NA,
   trigger_type = "incidence",
-  trigger_value = 1/10000
+  trigger_value = 1/10000,
+  scen_type = "work & other distancing, schools on/off"
 )[, c("other", "work") := .(dist, dist) ]
 soc_dist_only[school == 0, school := dist ]
 soc_dist_only$dist <- NULL
@@ -82,7 +83,8 @@ scen_counter <- tagscenario(soc_dist_only, scen_counter)
 reportref <- append_scenarios(
   reportref,
   soc_dist_only[self_iso == 0.25 & school != 1.0 & other %in% c(0.2, 0.6), scen_id],
-  sprintf("%i%% distancing",round(c(0.2,0.6)*100))
+  sprintf("%i%% distancing",round(c(0.2,0.6)*100)),
+  "generic distancing"
 )
 
 #' reference for elder shielding
@@ -92,7 +94,7 @@ low_soc_all <- ref(
   self_iso = self_iso_lvls[1],
   dist = soc_dist_lvls[1],
   trigger_type = "incidence",
-  trigger_value = 1/10000
+  trigger_value = 1/10000,
 )[, c("school", "other", "work") := .(dist, dist, dist) ]
 low_soc_all$dist <- NULL
 
@@ -102,12 +104,12 @@ low_soc_all$dist <- NULL
 
 adjust_reduction <- function(add, have = soc_dist_lvls[1]) 1-(1-(add+have))/(1-have)
 
-combo_int <- function(custom, generic = low_soc_all) {
+combo_int <- function(custom, generic = low_soc_all, scen_type) {
   cust_ids <- unique(custom$scen_id)
   return(rbind(
     custom,
     generic[rep(1:.N, each=length(cust_ids))][, scen_id := rep(cust_ids, length.out = .N) ]
-  ))
+  )[, scen_type := scen_type ])
 }
 
 
@@ -128,11 +130,16 @@ elder_shielding$dist <- NULL
 scen_counter <- tagscenario(elder_shielding, scen_counter)
 
 # cat(sprintf("40%% elder sheilding at home + low level all other measures: %i", elder_shielding[home == 0.4, scen_id]))
-reportref <- append_scenarios(reportref, elder_shielding[home == 0.4, scen_id], sprintf("%i%% in-home\nelder shielding", round(0.4*100)))
+reportref <- append_scenarios(
+  reportref,
+  elder_shielding[home == 0.4, scen_id],
+  sprintf("%i%% in-home\nelder shielding", round(0.4*100))
+)
 
 elder_shielding <- combo_int(
   elder_shielding,
-  low_soc_all
+  low_soc_all,
+  "elder-focused reductions, low general distancing, no school"
 )
 
 #'  - continuous low level social distancing (20%) + self-isolation (25%) +
@@ -164,7 +171,8 @@ reportref <- append_scenarios(
 
 sequester <- combo_int(
   sequester,
-  low_soc_all
+  low_soc_all,
+  "elder sequestration, low general distancing, school continues"
 )
 
 #'  - schools shutdown + continuous low level social distance (20%) + weekly alternating extra social distancing (40-50-60-70) => that + 20%
@@ -190,7 +198,8 @@ reportref <- append_scenarios(
 
 alternating <- combo_int(
   alternating,
-  low_soc_all
+  low_soc_all,
+  "intermittent lockdowns & school closure"
 )
 #' assume generics in place from start of alternating, rather than incidence
 alternating[trigger_type == "incidence", c("start_day","trigger_type","trigger_value") := .(0,NA_character_, 0)]
@@ -222,7 +231,8 @@ reportref <- append_scenarios(
 
 lockdown <- combo_int(
   lockdown,
-  low_soc_all
+  low_soc_all,
+  "temporary population-wide lockdown"
 )
 #' assume these in place from start of lockdown, rather than incidence
 lockdown[trigger_type == "incidence", c("trigger_type","trigger_value") := .("day", 0)]

@@ -27,6 +27,7 @@ ${HPCDIR}/%_low.qs: run_scenarios_low.R
 	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
 
 DETDIR ?= ~/Dropbox/covidm_hpc_detail
+DETINPUTDIR := ${DATADIR}/hpc_detailed
 
 ${DETDIR}/%/peak_detail.qs: digest_detail.R ${DETDIR}/%/001_detail.qs ../utils/sharedconst.rda
 	Rscript $^ $@
@@ -35,7 +36,7 @@ ${DETDIR}/%/accs_detail.qs ${DETDIR}/%/alls_detail.qs: ${DETDIR}/%/peak_detail.q
 
 ${DETDIR}/%_detail.qs: run_scenarios_detail.R
 	mkdir -p $(@D)
-	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${INTINPUTDIR} $@
+	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${DETINPUTDIR} $@
 
 
 ${HPCDIR}/%.qs: run_scenarios.R

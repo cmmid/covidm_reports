@@ -7,11 +7,12 @@ DATADIR ?= ~/Dropbox/covidm_reports
 SAMPN ?= 500
 INDIR := ${DATADIR}/generation
 OUTDIR := ${DATADIR}/hpc_inputs
+DETDIR := ${DATADIR}/hpc_detailed
 
 R = Rscript $^ $@
 
 # TODO other directory structure dependencies
-${OUTDIR}:
+${OUTDIR} ${DETDIR}:
 	mkdir -p $@
 
 # This file forms the reference locales for which we generate reports

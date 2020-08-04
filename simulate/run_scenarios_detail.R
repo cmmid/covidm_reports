@@ -14,7 +14,7 @@ cm_path = .args[1]
 cm_force_rebuild = F;
 cm_build_verbose = F;
 cm_force_shared = T
-cm_version = 2
+cm_version = 1
 
 suppressPackageStartupMessages({
   source(paste0(cm_path, "/R/covidm.R"))
@@ -65,7 +65,7 @@ if (scenario_index != 1 && iv_data[,any(trigger_type %in% c("incidence","prevale
   # unmitigated <- unmitigated[, .(value=sum(value)), by=c("run", "t", "compartment")]
 }
 
-#' set up paramaters
+#' set up paramaters for split populations
 if(iv_data[,any(population != -1)]){
   hirisk_prop_isolated <- iv_data[coverage != 1, coverage]
   params <- params_set[[2]]
