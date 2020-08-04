@@ -4,9 +4,9 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "../covidm", "2428", "001", 
+  "../covidm", "2428", "018", 
   sprintf("~/Dropbox/covidm_reports/hpc_detailed"),
-  "simulate/detail/001.qs"
+  "simulate/detail/018.qs"
 ) else commandArgs(trailingOnly = TRUE)
 
 # load covidm
@@ -282,8 +282,9 @@ for(i in 1:nrow(run_options)){
             start_day <- ifelse(is.na(timing$int0day), trigger_value, timing$int0day)
             end_day <- start_day + end_day
           } else if (trigger_type == "stride") {
-            end_day <- seq(end_day, params$time1, by=trigger_value)
-            start_day <- seq(start_day, params$time1, by=trigger_value)[1:length(end_day)]
+            tf <- as.integer(as.Date(params$time1) - as.Date(params$date0))
+            end_day <- seq(end_day, tf, by=trigger_value)
+            start_day <- seq(start_day, tf, by=trigger_value)[1:length(end_day)]
           } else {
             stop(sprintf("do not understand trigger type %s", trigger_type))
           }
