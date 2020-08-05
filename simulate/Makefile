@@ -38,7 +38,7 @@ ${DETDIR}/%_detail.qs: run_scenarios_detail.R
 	mkdir -p $(@D)
 	Rscript $^ ${COVIDMPATH} $(subst /, ,$*) ${DETINPUTDIR} $@
 
-${DETDIR}/%/peak_detail_low.qs: digest_detail.R ${DETDIR}/%/001_detail.qs ../utils/sharedconst.rda
+${DETDIR}/%/peak_detail_low.qs: digest_detail_low.R ${DETDIR}/%/001_detail_low.qs ../utils/sharedconst.rda
 	Rscript $^ $@
 
 ${DETDIR}/%/accs_detail_low.qs ${DETDIR}/%/alls_detail_low.qs: ${DETDIR}/%/peak_detail_low.qs
