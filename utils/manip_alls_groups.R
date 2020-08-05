@@ -20,10 +20,13 @@ list_of_files <- list.files(path = ".", recursive = TRUE,
                             pattern = "alls.qs$", 
                             full.names = TRUE)
 
+### this function focuses on creating cumulative estimates 
+
 alls_wrangle_function <- function(list.files, group1, time1){
   
-  group1 <-group1
-  time1 <- time1
+  group1 <-group1 ## group 1 is the age group you want
+  time1 <- time1 ## time1 is the cut-off time you want to sum over
+  ## e.g. if time1=365, then the code sums over values from t=0 to t=365
   
   ### due to processing limitations do process in chunks
   break_up_calc <- function(list_of_files,nstart, nstop, measure, group0, timestop){
@@ -88,6 +91,7 @@ alls_wrangle_function <- function(list.files, group1, time1){
   return(all)
 }
 
+#### example of how to run the functions
 # output_all_365 <- alls_wrangle_function(list_of_files, "all",365)
 ## saving outputs
 # save(output_all_365, file="outputs/all_365.RData")
