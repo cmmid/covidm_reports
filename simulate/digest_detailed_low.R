@@ -4,14 +4,14 @@ suppressPackageStartupMessages({
 })
 
 .args <- if (interactive()) c(
-  "~/Dropbox/covidm_hpc_output/IDP/001_detailed_low.qs",
+  "~/Dropbox/covidm_hpc_output/IDP/001_detail_low.qs",
   "utils/sharedconst.rda",
   "simulate/IDP/peak.qs"
 ) else commandArgs(trailingOnly = TRUE)
 #' @example use this to test alternatives
 #' .args <- gsub("CPV","IDP",.args)
 
-simfns <- sort(list.files(dirname(.args[1]), "\\d+_detailed_low\\.qs", full.names = TRUE))
+simfns <- sort(list.files(dirname(.args[1]), "\\d+_detail_low\\.qs", full.names = TRUE))
 load(.args[2])
 
 ref <- aggregate.both(qread(simfns[1])[compartment %in% c("cases","death_o","icu_p","nonicu_p","R")])
@@ -150,7 +150,7 @@ peaks <- list(
 
 for (ind in seq_along(simfns[-1])) {
   scen <- simfns[ind+1]
-  scen_id <- as.integer(gsub("^.+/(\\d+)_detailed_low\\.qs$","\\1", scen))
+  scen_id <- as.integer(gsub("^.+/(\\d+)_detail_low\\.qs$","\\1", scen))
   raw.dt <- readsim(scen)
   scenres <- calcAll(raw.dt)
   compar_peak <- scenres[
