@@ -14,9 +14,4 @@ afrregions <- regionref[region %like% "Africa"][-excl][,.SD,.SDcols=c("alpha-3",
 afrregions[`intermediate-region` == "", `intermediate-region` := `sub-region` ]
 afrkey <- setkey(afrregions[,.(region = `intermediate-region`, iso=`alpha-3`, code=`country-code`)], iso)
 
-pop.dt <- readRDS("../covidm/data/wpp2019_pop2020.rds")[country_code %in% afrkey$code]
-tots.dt <- pop.dt[afrkey, on=.(country_code = code)][, .(tot = sum(f+m)*1000), by=iso]
-
-afrkey[tots.dt, on=.(iso=iso), tot := tot ]
-
 saveRDS(afrkey, tail(.args, 1))
